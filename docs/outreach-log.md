@@ -10,7 +10,7 @@ Tracking outreach to Pakistani online sellers for customer discovery. This log i
 
 ---
 
-## Contacted — [Today's Date]
+## Contacted — [5-july-2026]
 
 | Business/Handle | Status | Followers | Channel | Contact | Phone | Category | Location |
 |---|---|---|---|---|---|---|---|
@@ -35,5 +35,19 @@ Tracking outreach to Pakistani online sellers for customer discovery. This log i
 ## Screenshot Proof
 
 Screenshots of outreach messages sent (WhatsApp + Instagram DM) are available here:
+
+[Outreach Screenshots — Google Drive](https://drive.google.com/drive/folders/1KX85ymZA_IYEUOLgVJIRsrTlYMWwEc9F)
+
+
+
+---
+
+## Contacted — [07-july-2026] (Batch 2)
+
+- **Accounts contacted today:** 14
+- **Channel used:** Instagram DM
+- **Category:** Clothing/apparel brands
+- **Follower range:** ~180 to 255k (mix of small and large accounts)
+- **Work done today:** Reached out to 14 additional clothing brand accounts on Instagram to introduce the product and gauge interest, continuing the outreach effort started in Batch 1 (WhatsApp/Instagram). Screenshot proof of messages sent is in the linked Drive folder below (same as Batch 1).
 
 [Outreach Screenshots — Google Drive](https://drive.google.com/drive/folders/1KX85ymZA_IYEUOLgVJIRsrTlYMWwEc9F)
