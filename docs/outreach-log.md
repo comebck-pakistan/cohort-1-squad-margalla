@@ -51,3 +51,15 @@ Screenshots of outreach messages sent (WhatsApp + Instagram DM) are available he
 - **Work done today:** Reached out to 14 additional clothing brand accounts on Instagram to introduce the product and gauge interest, continuing the outreach effort started in Batch 1 (WhatsApp/Instagram). Screenshot proof of messages sent is in the linked Drive folder below (same as Batch 1).
 
 [Outreach Screenshots — Google Drive](https://drive.google.com/drive/folders/1KX85ymZA_IYEUOLgVJIRsrTlYMWwEc9F)
+
+
+---
+
+## Contacted — [11-july-2026] (Batch 3)
+
+- **Accounts contacted today:** [4]
+- **Channel used:** [Instagram ]
+- **Category:** Clothing brands 
+- **Status:** No responses received yet
+- **Work done today:** Reached out to additional brand accounts; also had a follow-up conversation with a previously contacted seller who shared feedback that a chatbot alone isn't enough — they want marketing/traffic-driving tools like a website (see Interview 2 in interviews-with-potential-users.md).
+
