@@ -82,3 +82,18 @@ WhatsApp product inquiries. A simple, clean catalogue (even just a PDF or WhatsA
 - Sellers want **proactive** communication (tracking updates, confirmation deadlines), not just reactive replies — this maps directly to an automated ops agent rather than a simple FAQ bot.
 - A structured, deadline-based COD confirmation flow was independently suggested by the seller — strong signal this is a real, felt need, not just our assumption.
 - Repetitive pre-sale questions (price/size/COD/location) could be reduced with a static catalogue, but post-sale operations (confirmation, tracking, no-shows) remain the harder, unsolved problem — this is where the Product's real value sits.
+
+
+---
+
+## Interview 2 — Seller Feedback on Product Direction
+
+**Date conducted:** [11-July-2026]
+
+### Key Feedback
+
+Seller mentioned that a chatbot alone isn't enough — they need something broader that helps with **marketing and driving traffic**, such as a **website**, not just automated customer conversations.
+
+### Takeaway
+
+This signals that some sellers see their bottleneck not just as post-purchase operations, but as **discovery/acquisition** — getting more customers in the first place. Worth noting as a possible future feature direction (e.g. a simple storefront/landing page tied into the ops agent) rather than something to build now, but important to track as a recurring theme if more sellers say the same thing.
