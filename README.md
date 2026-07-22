@@ -94,3 +94,4 @@ git pull origin main
 
 > **Every squad member must contribute commits.** The challenge grades a real, honest
 > commit history that shows everyone built. Build in the open, ship the proof. 🚀
+
