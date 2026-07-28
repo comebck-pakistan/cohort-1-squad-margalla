@@ -1,0 +1,218 @@
+"""Conversation manager — manages conversation state and follow-up resolution.
+
+Handles:
+- Get or create conversation for a customer
+- Resolve follow-up messages using conversation context
+- Store clarification candidates for disambiguation
+- Update conversation state after each message
+"""
+import json
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.conversation import Conversation, Message
+from app.models.customer import Customer
+from app.services.response_builder import ProcessedResponse
+
+
+class ConversationManager:
+    """Manage conversation state for follow-up resolution."""
+
+    async def get_or_create_conversation(
+        self,
+        db: AsyncSession,
+        store_id: str,
+        customer_number: str,
+    ) -> tuple[Conversation, Customer]:
+        """Get existing active conversation or create a new one."""
+        # Get or create customer
+        result = await db.execute(
+            select(Customer).where(
+                Customer.store_id == store_id,
+                Customer.phone_number == customer_number,
+            )
+        )
+        customer = result.scalar_one_or_none()
+
+        if not customer:
+            customer = Customer(
+                store_id=store_id,
+                phone_number=customer_number,
+            )
+            db.add(customer)
+            await db.flush()
+
+        # Get active conversation
+        result = await db.execute(
+            select(Conversation).where(
+                Conversation.store_id == store_id,
+                Conversation.customer_id == customer.id,
+                Conversation.status == "active",
+            ).options(selectinload(Conversation.messages))
+        )
+        conversation = result.scalar_one_or_none()
+
+        if not conversation:
+            conversation = Conversation(
+                store_id=store_id,
+                customer_id=customer.id,
+                status="active",
+                is_ai_controlled=True,
+            )
+            db.add(conversation)
+            await db.flush()
+
+        return conversation, customer
+
+    def apply_context(
+        self,
+        conversation: Conversation,
+        response: ProcessedResponse,
+    ):
+        """Update conversation context from the latest response."""
+        if response.matched_product_id:
+            conversation.current_product_id = response.matched_product_id
+        if response.matched_variant_id:
+            conversation.current_variant_id = response.matched_variant_id
+
+        # Update selected attributes from entities
+        entities = response.extracted_entities
+        if entities.get("color"):
+            conversation.selected_color = entities["color"]
+        if entities.get("size"):
+            conversation.selected_size = entities["size"]
+        if entities.get("quantity"):
+            conversation.quantity = entities["quantity"]
+
+        # Store clarification candidates
+        if response.clarification_options:
+            candidate_ids = [opt["product_id"] for opt in response.clarification_options]
+            conversation.set_clarification_candidates_list(candidate_ids)
+            conversation.pending_clarification = "product_selection"
+        elif response.matched_product_id:
+            # Clear clarification if we got a definite match
+            conversation.pending_clarification = None
+            conversation.clarification_candidates = None
+
+    def resolve_followup(
+        self,
+        conversation: Conversation,
+        message: str,
+        entities: dict,
+    ) -> dict:
+        """Resolve follow-up context from conversation state.
+
+        Returns a dict of resolved context to merge with extracted entities:
+        {
+            "product_id": resolved product ID,
+            "color": resolved color,
+            "size": resolved size,
+            "from_context": True,
+        }
+        """
+        resolved = {}
+        message_lower = message.lower().strip()
+
+        # Check if this is a clarification response (number selection)
+        if conversation.pending_clarification == "product_selection":
+            candidates = conversation.get_clarification_candidates_list()
+            selected = self._resolve_numbered_choice(message_lower, candidates)
+            if selected:
+                resolved["product_id"] = selected
+                resolved["from_context"] = True
+                return resolved
+
+        # Check if message references current product context
+        has_product_ref = entities.get("product_query") or entities.get("sku") or entities.get("category")
+
+        if not has_product_ref and conversation.current_product_id:
+            # No new product reference — use context product
+            resolved["product_id"] = conversation.current_product_id
+            resolved["from_context"] = True
+
+            # Fill in missing attributes from context
+            if not entities.get("color") and conversation.selected_color:
+                resolved["color"] = conversation.selected_color
+            if not entities.get("size") and conversation.selected_size:
+                resolved["size"] = conversation.selected_size
+
+        return resolved
+
+    def _resolve_numbered_choice(
+        self,
+        message: str,
+        candidates: list[str],
+    ) -> str | None:
+        """Resolve a numbered choice from clarification candidates.
+
+        Handles: "1", "first", "second", "2", "pehla", "doosra", "teesra"
+        """
+        number_words = {
+            "1": 0, "first": 0, "pehla": 0, "pehli": 0, "pahla": 0,
+            "2": 0, "second": 0, "doosra": 0, "doosri": 0, "dusra": 0,
+            "3": 0, "third": 0, "teesra": 0, "teesri": 0, "tisra": 0,
+            "4": 0, "fourth": 0, "chautha": 0,
+            "5": 0, "fifth": 0, "panchwa": 0,
+        }
+
+        # Simple number mapping
+        for word, _ in number_words.items():
+            if word in message.split() or message.strip() == word:
+                try:
+                    idx = int(word) - 1 if word.isdigit() else None
+                except ValueError:
+                    idx = None
+
+                if idx is None:
+                    # Map word to index
+                    ordinal_map = {
+                        "first": 0, "pehla": 0, "pehli": 0, "pahla": 0,
+                        "second": 1, "doosra": 1, "doosri": 1, "dusra": 1,
+                        "third": 2, "teesra": 2, "teesri": 2, "tisra": 2,
+                        "fourth": 3, "chautha": 3,
+                        "fifth": 4, "panchwa": 4,
+                    }
+                    idx = ordinal_map.get(word)
+
+                if idx is not None and 0 <= idx < len(candidates):
+                    return candidates[idx]
+
+        return None
+
+    async def save_message(
+        self,
+        db: AsyncSession,
+        conversation: Conversation,
+        content: str,
+        direction: str,
+        message_type: str = "text",
+        whatsapp_message_id: str | None = None,
+        processed_result: dict | None = None,
+    ) -> Message:
+        """Save a message to the conversation."""
+        # Duplicate check
+        if whatsapp_message_id:
+            existing = await db.execute(
+                select(Message).where(Message.whatsapp_message_id == whatsapp_message_id)
+            )
+            if existing.scalar_one_or_none():
+                raise DuplicateMessageError(whatsapp_message_id)
+
+        msg = Message(
+            conversation_id=conversation.id,
+            direction=direction,
+            content=content,
+            message_type=message_type,
+            whatsapp_message_id=whatsapp_message_id,
+            processed_result_json=json.dumps(processed_result) if processed_result else None,
+        )
+        db.add(msg)
+        return msg
+
+
+class DuplicateMessageError(Exception):
+    """Raised when a duplicate WhatsApp message ID is detected."""
+    def __init__(self, message_id: str):
+        self.message_id = message_id
+        super().__init__(f"Duplicate message: {message_id}")
