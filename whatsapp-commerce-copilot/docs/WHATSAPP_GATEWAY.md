@@ -36,7 +36,7 @@ Evolution API is configured to send these events to `POST /webhook/evolution`:
 |-------|---------------|
 | `QRCODE_UPDATED` | Cache QR base64, report `waiting_for_qr` to backend |
 | `CONNECTION_UPDATE` | Map state (`open`→`connected`, `connecting`→`initializing`, `close`→`disconnected`), report to backend |
-| `MESSAGES_UPSERT` | Filter `fromMe`, extract customer number from `remoteJid`, normalize payload, POST to backend |
+| `MESSAGES_UPSERT` | Filter noise/history, normalize phone/LID identity, POST to backend |
 
 ### Verified Webhook Payload Shapes (Evolution API v2.3.7)
 
@@ -105,8 +105,20 @@ disconnected → initializing → waiting_for_qr → connected
 
 ## Idempotency
 
-- Adapter maintains an in-memory set of processed WhatsApp message IDs
-- Backend's `InternalMessageRequest` also accepts `whatsapp_message_id` for server-side dedup
+- The adapter keeps a bounded in-memory fast-path set and only marks a message
+  after backend processing and reply delivery succeed.
+- The backend stores `whatsapp_message_id` under a database unique index and
+  returns the original processed response on a retry.
+- Apply `backend/migrations/20260730_add_message_idempotency.sql` to databases
+  that predate this change.
+
+## Inbound Filtering
+
+The adapter rejects groups (`@g.us`), status/broadcast/newsletter traffic,
+history-sync appends, reactions, protocol/key-distribution messages, stale
+messages, and unsupported media without captions. `remoteJidAlt` is preferred
+when Evolution supplies an opaque WhatsApp LID. Tune the live-message window
+with `MAX_INBOUND_AGE_SECONDS` (default: 300).
 
 ## Internal API
 

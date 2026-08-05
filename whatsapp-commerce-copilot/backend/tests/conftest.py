@@ -1,4 +1,7 @@
 """Test fixtures for the backend test suite."""
+import os
+os.environ["AI_PROVIDER"] = "mock"
+
 import asyncio
 import pytest
 import pytest_asyncio

@@ -17,9 +17,10 @@ const logger = createLogger({
 // In-memory QR code cache (per instance/store)
 const qrCache = new Map();
 
-// In-memory set for message ID idempotency (simple dedup within adapter lifetime)
+// Fast local dedup only. Durable idempotency lives in the backend database.
 const processedMessageIds = new Set();
 const MAX_PROCESSED_IDS = 10000;
+const gatewayStartedAtSeconds = Math.floor(Date.now() / 1000);
 
 /**
  * Map Evolution API connection states to the backend's session status enum.
@@ -39,8 +40,8 @@ function mapConnectionState(evolutionState) {
  * Checks the apikey field in the payload against our configured secret.
  */
 function validateWebhook(req) {
-  // Evolution API sends the secret in the custom header we configured
-  const secret = req.headers['x-webhook-secret'] || req.headers['X-Webhook-Secret'];
+  // Prefer the custom header; Evolution also includes the API key in payloads.
+  const secret = req.headers['x-webhook-secret'] || req.body?.apikey;
   if (config.webhookSecret && secret !== config.webhookSecret) {
     return false;
   }
@@ -124,11 +125,24 @@ async function handleMessagesUpsert(payload) {
   const storeId = extractStoreId(payload);
   if (!storeId) return;
 
-  const data = payload.data;
+  const rawData = payload.data;
+  const messages = Array.isArray(rawData) ? rawData : [rawData];
+  for (const data of messages) {
+    await handleSingleMessage(storeId, data);
+  }
+}
+
+async function handleSingleMessage(storeId, data) {
   if (!data || !data.key) return;
 
   // Skip messages sent by us
   if (data.key.fromMe) return;
+
+  const skipReason = getSkipReason(data);
+  if (skipReason) {
+    logger.info({ msg: 'Inbound event skipped', storeId, reason: skipReason });
+    return;
+  }
 
   const whatsappMessageId = data.key.id;
 
@@ -138,26 +152,18 @@ async function handleMessagesUpsert(payload) {
     return;
   }
 
-  // Track processed message ID (with bounded set size)
-  if (whatsappMessageId) {
-    processedMessageIds.add(whatsappMessageId);
-    if (processedMessageIds.size > MAX_PROCESSED_IDS) {
-      // Remove oldest entries (first added)
-      const iterator = processedMessageIds.values();
-      for (let i = 0; i < 1000; i++) {
-        processedMessageIds.delete(iterator.next().value);
-      }
-    }
+  const customerNumber = normalizeCustomerNumber(data);
+  if (!customerNumber) {
+    logger.info({ msg: 'Message identity could not be normalized', storeId, messageId: whatsappMessageId });
+    return;
   }
-
-  // Extract customer number from remoteJid (e.g. "923001234567@s.whatsapp.net" → "923001234567")
-  const remoteJid = data.key.remoteJid || '';
-  const customerNumber = remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
 
   // Extract message text
   const messageText = data.message?.conversation
     || data.message?.extendedTextMessage?.text
     || data.message?.imageMessage?.caption
+    || data.message?.videoMessage?.caption
+    || data.message?.documentMessage?.caption
     || '';
 
   if (!messageText) {
@@ -166,7 +172,10 @@ async function handleMessagesUpsert(payload) {
   }
 
   // Determine message type
-  const messageType = data.message?.conversation ? 'text' : 'text';
+  const messageType = data.message?.imageMessage ? 'image'
+    : data.message?.videoMessage ? 'video'
+    : data.message?.documentMessage ? 'document'
+    : 'text';
 
   logger.info({ msg: 'Message received', storeId, from: customerNumber, messageId: whatsappMessageId });
 
@@ -192,9 +201,72 @@ async function handleMessagesUpsert(payload) {
         await evolutionClient.sendText(storeId, customerNumber, res.data.message);
       }
     }
+    markProcessed(whatsappMessageId);
   } catch (err) {
     logger.error({ msg: 'Failed to forward message to backend', storeId, error: err.message });
   }
+}
+
+function markProcessed(messageId) {
+  if (!messageId) return;
+  processedMessageIds.add(messageId);
+  if (processedMessageIds.size > MAX_PROCESSED_IDS) {
+    const iterator = processedMessageIds.values();
+    for (let i = 0; i < 1000; i++) {
+      const next = iterator.next();
+      if (next.done) break;
+      processedMessageIds.delete(next.value);
+    }
+  }
+}
+
+function getSkipReason(data, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const key = data.key || {};
+  const jid = key.remoteJid || '';
+  if (jid.endsWith('@g.us')) return 'group';
+  if (jid === 'status@broadcast' || jid.endsWith('@broadcast')) return 'broadcast';
+  if (jid.endsWith('@newsletter')) return 'newsletter';
+
+  const upsertType = String(data.type || data.upsertType || '').toLowerCase();
+  if (['append', 'history', 'history_sync'].includes(upsertType)) return 'history_sync';
+
+  const message = data.message || {};
+  const unsupportedKeys = [
+    'protocolMessage', 'reactionMessage', 'senderKeyDistributionMessage',
+    'pollUpdateMessage', 'keepInChatMessage',
+  ];
+  if (unsupportedKeys.some((name) => message[name])) return 'protocol_or_reaction';
+
+  const rawTimestamp = data.messageTimestamp?.low
+    || data.messageTimestamp
+    || data.timestamp
+    || 0;
+  const timestamp = Number(rawTimestamp);
+  const oldestAllowed = Math.max(
+    gatewayStartedAtSeconds - 60,
+    nowSeconds - config.maxInboundAgeSeconds,
+  );
+  if (timestamp && timestamp < oldestAllowed) return 'stale';
+  return null;
+}
+
+function normalizeCustomerNumber(data) {
+  const key = data.key || {};
+  // Evolution/Baileys supplies the real phone JID as *Alt when the primary
+  // identifier is WhatsApp's opaque LID.
+  const candidates = [
+    key.remoteJidAlt,
+    data.remoteJidAlt,
+    key.remoteJid,
+    key.participantAlt,
+    data.participantAlt,
+  ].filter(Boolean);
+  const jid = candidates.find((value) =>
+    value.endsWith('@s.whatsapp.net') || value.endsWith('@c.us')
+  );
+  if (!jid) return null;
+  const number = jid.replace(/@(s\.whatsapp\.net|c\.us)$/, '');
+  return /^\d{7,15}$/.test(number) ? number : null;
 }
 
 /**
@@ -253,4 +325,8 @@ module.exports = {
   webhookHandler,
   getCachedQR,
   mapConnectionState,
+  getSkipReason,
+  normalizeCustomerNumber,
+  handleMessagesUpsert,
+  _processedMessageIds: processedMessageIds,
 };

@@ -92,7 +92,8 @@ class TestSpecInputs:
         )
         # Should extract quantity=2 and size=40
         entities = response.extracted_entities
-        assert entities.get("quantity") == 2 or entities.get("size") == "40"
+        assert entities.get("quantity") == 2
+        assert entities.get("size") == "40"
 
     def test_cod_and_delivery(self, processor, fashion_products, fashion_policies):
         """'COD hai aur delivery kitne din mein hogi?'"""

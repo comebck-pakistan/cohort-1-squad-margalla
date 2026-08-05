@@ -60,6 +60,8 @@ class ConversationManager:
                 status="active",
                 is_ai_controlled=True,
             )
+            # Initialize messages to avoid lazy-loading (and MissingGreenlet) later
+            conversation.messages = []
             db.add(conversation)
             await db.flush()
 
@@ -82,18 +84,30 @@ class ConversationManager:
             conversation.selected_color = entities["color"]
         if entities.get("size"):
             conversation.selected_size = entities["size"]
-        if entities.get("quantity"):
-            conversation.quantity = entities["quantity"]
 
-        # Store clarification candidates
+        # Update preferences
+        prefs = conversation.get_preferences()
+        for key in ["category", "style", "color", "size", "budget_min", "budget_max"]:
+            val = entities.get(key)
+            if val is not None:
+                prefs[key] = val
+        conversation.set_preferences(prefs)
+
+        # Store clarification candidates and recently shown products
+        recently_shown = []
         if response.clarification_options:
             candidate_ids = [opt["product_id"] for opt in response.clarification_options]
             conversation.set_clarification_candidates_list(candidate_ids)
             conversation.pending_clarification = "product_selection"
+            recently_shown.extend(candidate_ids)
         elif response.matched_product_id:
             # Clear clarification if we got a definite match
             conversation.pending_clarification = None
             conversation.clarification_candidates = None
+            recently_shown.append(response.matched_product_id)
+            
+        if recently_shown:
+            conversation.add_recently_shown_products(recently_shown)
 
     def resolve_followup(
         self,
@@ -136,6 +150,10 @@ class ConversationManager:
                 resolved["color"] = conversation.selected_color
             if not entities.get("size") and conversation.selected_size:
                 resolved["size"] = conversation.selected_size
+
+        # Also return the recently shown products and preferences for search context
+        resolved["recently_shown_products"] = conversation.get_recently_shown_products()
+        resolved["preferences"] = conversation.get_preferences()
 
         return resolved
 
@@ -209,6 +227,20 @@ class ConversationManager:
         )
         db.add(msg)
         return msg
+
+    async def get_message_by_whatsapp_id(
+        self,
+        db: AsyncSession,
+        whatsapp_message_id: str | None,
+    ) -> Message | None:
+        if not whatsapp_message_id:
+            return None
+        result = await db.execute(
+            select(Message).where(
+                Message.whatsapp_message_id == whatsapp_message_id
+            )
+        )
+        return result.scalar_one_or_none()
 
 
 class DuplicateMessageError(Exception):

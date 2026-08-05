@@ -4,7 +4,8 @@ import pytest_asyncio
 import json
 from unittest.mock import AsyncMock, patch, MagicMock
 from app.services.ai_provider import (
-    MockAIProvider, OpenRouterProvider, AIRequestContext, AIResponseSchema,
+    MockAIProvider, OpenRouterProvider, LangChainProvider, OpenAIProvider,
+    AIRequestContext, AIResponseSchema, AIIntentSchema,
     get_ai_provider, reset_ai_provider,
 )
 
@@ -193,3 +194,131 @@ class TestProviderFactory:
         provider = get_ai_provider()
         assert provider.name() == "mock"
         reset_ai_provider()
+
+    def test_langchain_selection(self):
+        settings = MagicMock(
+            AI_PROVIDER="langchain",
+            OPENAI_API_KEY=None,
+            OPENAI_MODEL="gpt-4o-mini",
+        )
+        reset_ai_provider()
+        with patch("app.services.ai_provider.get_settings", return_value=settings):
+            provider = get_ai_provider()
+        assert isinstance(provider, LangChainProvider)
+        assert provider.name() == "langchain"
+        assert provider.is_configured() is False
+        reset_ai_provider()
+
+    def test_gemini_selection_without_key_is_safe(self):
+        settings = MagicMock(
+            AI_PROVIDER="gemini",
+            GOOGLE_API_KEY=None,
+            GEMINI_API_KEY=None,
+            OPENAI_API_KEY=None,
+            GEMINI_MODEL="gemini-3.5-flash-lite",
+        )
+        reset_ai_provider()
+        with patch("app.services.ai_provider.get_settings", return_value=settings):
+            provider = get_ai_provider()
+        assert isinstance(provider, LangChainProvider)
+        assert provider.name() == "gemini"
+        assert provider.is_configured() is False
+        reset_ai_provider()
+
+
+class TestLangChainProvider:
+    """Test LangChain chains without making external API calls."""
+
+    @pytest.mark.asyncio
+    async def test_no_api_key_fallback(self):
+        provider = LangChainProvider()
+        provider.api_key = None
+        provider.response_chain = None
+
+        ctx = AIRequestContext(
+            customer_message="test",
+            detected_intent="unknown",
+            extracted_entities={},
+            store_language="english",
+            store_name="Test",
+        )
+        result = await provider.process(ctx)
+        assert result.needs_human is True
+
+    @pytest.mark.asyncio
+    async def test_successful_response(self):
+        provider = LangChainProvider()
+        provider.api_key = "test-key"
+        expected = AIResponseSchema(
+            response_message="Here is the kurta",
+            selected_product_id="prod-001",
+            confidence=0.9
+        )
+        provider.response_chain = AsyncMock()
+        provider.response_chain.ainvoke.return_value = expected
+
+        ctx = AIRequestContext(
+            customer_message="kurta hai?",
+            detected_intent="product_search",
+            extracted_entities={},
+            store_language="roman_urdu",
+            store_name="Test",
+        )
+        result = await provider.process(ctx)
+        assert result.response_message == "Here is the kurta"
+        assert result.selected_product_id == "prod-001"
+        assert result.confidence == 0.9
+        payload = provider.response_chain.ainvoke.await_args.args[0]
+        assert "kurta hai?" in payload["customer_message"]
+        assert payload["candidate_products"] == "[]"
+
+    @pytest.mark.asyncio
+    async def test_classifies_every_message_through_chain(self):
+        provider = LangChainProvider()
+        provider.api_key = "test-key"
+        provider.intent_chain = AsyncMock()
+        provider.intent_chain.ainvoke.return_value = AIIntentSchema(
+            intent="product_search", product_query="kurta", confidence=0.95
+        )
+
+        result = await provider.classify_intent("kurta hai?", "roman_urdu")
+
+        assert result.product_query == "kurta"
+        provider.intent_chain.ainvoke.assert_awaited_once()
+        payload = provider.intent_chain.ainvoke.await_args.args[0]
+        assert payload["customer_message"] == "kurta hai?"
+        # reply_language is no longer injected into the intent prompt;
+        # the AI now detects and returns language itself via AIIntentSchema.
+        assert "allowed_intents" in payload
+
+    @pytest.mark.asyncio
+    async def test_classification_failure_keeps_rule_pipeline_available(self):
+        provider = LangChainProvider()
+        provider.api_key = "test-key"
+        provider.intent_chain = AsyncMock()
+        provider.intent_chain.ainvoke.side_effect = RuntimeError("provider down")
+
+        assert await provider.classify_intent("kurta hai?", "roman_urdu") is None
+
+    @pytest.mark.asyncio
+    async def test_response_failure_uses_safe_handoff(self):
+        provider = LangChainProvider()
+        provider.api_key = "test-key"
+        provider.response_chain = AsyncMock()
+        provider.response_chain.ainvoke.side_effect = RuntimeError("provider down")
+
+        ctx = AIRequestContext(
+            customer_message="kurta hai?",
+            detected_intent="product_search",
+            extracted_entities={},
+            store_language="roman_urdu",
+            store_name="Test",
+        )
+        result = await provider.process(ctx)
+        assert result.needs_human is True
+        assert result.escalation_reason == "ai_error"
+
+    def test_openai_setting_remains_a_langchain_alias(self):
+        provider = OpenAIProvider()
+        assert isinstance(provider, LangChainProvider)
+        assert provider.name() == "openai"

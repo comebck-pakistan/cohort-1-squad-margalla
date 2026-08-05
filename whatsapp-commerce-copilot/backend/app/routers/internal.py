@@ -6,6 +6,7 @@ Handles: incoming messages, outbound send requests, session status events.
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -20,13 +21,13 @@ from app.schemas.api import (
     InternalMessageRequest, InternalSendRequest, InternalSessionEvent,
     DemoMessageResponse,
 )
-from app.services.message_processor import MessageProcessor
-from app.services.conversation_manager import ConversationManager
+from app.services.conversation_controller import ConversationController
+from app.services.conversation_manager import ConversationManager, DuplicateMessageError
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/internal/whatsapp", tags=["internal"])
 
-_processor = MessageProcessor()
+_controller = ConversationController()
 _conv_manager = ConversationManager()
 
 
@@ -68,20 +69,42 @@ async def receive_message(
     # Get or create conversation
     conv, customer = await _conv_manager.get_or_create_conversation(db, store.id, data.customer_number)
 
-    # Save inbound message
-    await _conv_manager.save_message(db, conv, data.message, "inbound")
-    await db.commit()
+    # Persist the provider message ID before doing any work. Re-delivery returns
+    # the already computed response and never sends a second order/reply.
+    try:
+        inbound = await _conv_manager.save_message(
+            db, conv, data.message, "inbound",
+            message_type=data.message_type,
+            whatsapp_message_id=data.whatsapp_message_id,
+        )
+        await db.flush()
+    except (DuplicateMessageError, IntegrityError) as exc:
+        await db.rollback()
+        existing = await _conv_manager.get_message_by_whatsapp_id(
+            db, data.whatsapp_message_id
+        )
+        saved = existing.get_processed_result() if existing else None
+        if saved:
+            return DemoMessageResponse(**saved)
+        return DemoMessageResponse(
+            message="", intent="duplicate", confidence=1.0,
+            store_id=store.id,
+        )
 
     if not conv.is_ai_controlled:
+        await db.commit()
         return DemoMessageResponse(
             message="[AI disabled - human mode active]",
+            intent="human_control",
+            confidence=1.0,
             matched_product_id=None,
             store_id=store.id,
-            customer_number=data.customer_number
         )
 
     # Process through pipeline
-    response = _processor.process(
+    response = await _controller.process(
+        db=db,
+        conversation=conv,
         message=data.message,
         products=products,
         policies=policies,
@@ -91,7 +114,7 @@ async def receive_message(
         customer_number=data.customer_number,
     )
 
-    # Save outbound message
+    inbound.set_processed_result(response.to_dict())
     await _conv_manager.save_message(db, conv, response.message, "outbound")
     await db.commit()
 

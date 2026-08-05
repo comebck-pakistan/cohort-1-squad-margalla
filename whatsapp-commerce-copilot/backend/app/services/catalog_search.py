@@ -58,6 +58,12 @@ class CatalogSearchService:
         color: str | None = None,
         size: str | None = None,
         category: str | None = None,
+        product_id: str | None = None,
+        budget_min: float | None = None,
+        budget_max: float | None = None,
+        excluded_colors: list[str] | None = None,
+        recently_shown_products: list[str] | None = None,
+        preferences: dict | None = None,
     ) -> CatalogSearchResult:
         """Search store catalog for matching products.
 
@@ -75,8 +81,14 @@ class CatalogSearchService:
             result.source_type = "none"
             return result
 
-        # Filter to active products only
+        # Filter to active products only. A resolved contextual product ID is
+        # stronger than a new fuzzy text search.
         active_products = [p for p in products if p.is_active]
+        if product_id:
+            active_products = [p for p in active_products if p.id == product_id]
+            if not active_products:
+                result.source_type = "none"
+                return result
 
         # 1. Try exact SKU match first
         if sku:
@@ -88,6 +100,16 @@ class CatalogSearchService:
                 self._filter_variants(result, color, size)
                 return result
 
+        if product_id:
+            match = MatchedProduct(
+                product=active_products[0],
+                score=100.0,
+                match_reason="context",
+            )
+            result.matches = [match]
+            result.best_match = match
+            result.source_type = "context"
+
         # 2. Try category filter
         if category:
             category_products = [
@@ -98,7 +120,7 @@ class CatalogSearchService:
                 active_products = category_products
 
         # 3. Try alias matching + token matching + fuzzy
-        if query:
+        if query and not result.matches:
             scored_matches = self._score_products(active_products, query)
 
             if scored_matches:
@@ -114,9 +136,24 @@ class CatalogSearchService:
 
                     # Check ambiguity
                     if len(scored_matches) >= 2:
-                        gap = scored_matches[0].score - scored_matches[1].score
-                        if gap < AMBIGUOUS_SCORE_GAP:
-                            result.is_ambiguous = True
+                        resolved_by_recent = False
+                        # Prioritize recently shown products if ambiguous
+                        if recently_shown_products:
+                            recent_matches = [m for m in scored_matches if m.product.id in recently_shown_products]
+                            if len(recent_matches) == 1:
+                                # Promote the single recent match to the top and resolve
+                                recent_best = recent_matches[0]
+                                scored_matches.remove(recent_best)
+                                scored_matches.insert(0, recent_best)
+                                result.best_match = recent_best
+                                result.matches = scored_matches
+                                resolved_by_recent = True
+                                    
+                        # If still ambiguous, check gap
+                        if not resolved_by_recent:
+                            gap = scored_matches[0].score - scored_matches[1].score
+                            if gap < AMBIGUOUS_SCORE_GAP:
+                                result.is_ambiguous = True
 
         # 3.5. If no query but we have color/size, search all products by variant attributes
         if not result.matches and not query and (color or size):
@@ -141,7 +178,11 @@ class CatalogSearchService:
                 result.source_type = "category"
 
         # 5. If NO query, NO category, NO color/size, just return all active products (generic catalog request)
-        if not result.matches and not query and not category and not color and not size:
+        if (
+            not result.matches and query is None and not sku and not category
+            and not color and not size
+            and (budget_min is not None or budget_max is not None)
+        ):
             for p in active_products:
                 result.matches.append(MatchedProduct(
                     product=p, score=20.0, match_reason="generic"
@@ -154,10 +195,12 @@ class CatalogSearchService:
                 result.source_type = "generic"
 
         # Apply color/size filters to variants
-        self._filter_variants(result, color, size)
+        self._filter_variants(
+            result, color, size, budget_min, budget_max, excluded_colors or []
+        )
 
         # Post-filter: remove matches with no matching variants when color/size specified
-        if color or size:
+        if color or size or budget_min is not None or budget_max is not None or excluded_colors:
             result.matches = [m for m in result.matches if m.matched_variants]
             if len(result.matches) == 1:
                 result.best_match = result.matches[0]
@@ -206,6 +249,10 @@ class CatalogSearchService:
             # Collect all matchable names for this product
             matchable_names = [product.name.lower()]
             matchable_names.extend([a.alias.lower() for a in product.aliases])
+            if product.category:
+                matchable_names.append(product.category.lower())
+            if product.description:
+                matchable_names.append(product.description.lower())
 
             for name in matchable_names:
                 # a. Exact alias match
@@ -254,15 +301,21 @@ class CatalogSearchService:
         result: CatalogSearchResult,
         color: str | None,
         size: str | None,
+        budget_min: float | None = None,
+        budget_max: float | None = None,
+        excluded_colors: list[str] | None = None,
     ):
         """Filter matched variants by color and size."""
-        if not color and not size:
+        if not color and not size and budget_min is None and budget_max is None and not excluded_colors:
             # Set all active variants as matched
             for match in result.matches:
                 match.matched_variants = [v for v in match.product.variants if v.is_active]
             return
 
         normalized_color = normalize_color(color) if color else None
+        normalized_excluded = {
+            normalize_color(value) for value in (excluded_colors or [])
+        }
 
         for match in result.matches:
             filtered = []
@@ -280,9 +333,29 @@ class CatalogSearchService:
                 if size and variant.size:
                     size_ok = variant.size.lower() == size.lower()
 
-                if color_ok and size_ok:
+                variant_color = normalize_color(variant.color) if variant.color else None
+                excluded_ok = variant_color not in normalized_excluded
+                budget_ok = (
+                    (budget_min is None or variant.price >= budget_min)
+                    and (budget_max is None or variant.price <= budget_max)
+                )
+
+                if color_ok and size_ok and excluded_ok and budget_ok:
                     filtered.append(variant)
 
             match.matched_variants = filtered
             if len(filtered) == 1:
                 match.matched_variant = filtered[0]
+
+        # Prefer products that are actually in stock, then lower price for a
+        # budget search. Text relevance remains the primary score.
+        result.matches.sort(
+            key=lambda match: (
+                match.score,
+                any(v.stock > 0 for v in match.matched_variants),
+                -min((v.price for v in match.matched_variants), default=float("inf")),
+            ),
+            reverse=True,
+        )
+        if result.matches:
+            result.best_match = result.matches[0]

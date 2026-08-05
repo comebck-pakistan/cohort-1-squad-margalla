@@ -19,6 +19,9 @@ class ExtractedEntities:
     size: str | None = None
     quantity: int | None = None
     delivery_city: str | None = None
+    budget_min: float | None = None
+    budget_max: float | None = None
+    excluded_colors: list[str] = field(default_factory=list)
     requested_fields: list[str] = field(default_factory=list)
     language: str = "english"
     confidence: float = 0.0
@@ -124,12 +127,16 @@ def extract_entities(normalized_text: str, language: str = "english") -> Extract
         entities.confidence = 0.95
 
     # 2. Extract color (multi-word colors first)
-    extracted_color = _extract_color(text)
+    entities.excluded_colors = _extract_excluded_colors(text)
+    extracted_color = _extract_color(text, entities.excluded_colors)
     if extracted_color:
         entities.color = normalize_color(extracted_color)
 
     # 3. Extract size and quantity (with disambiguation)
     _extract_size_and_quantity(text, entities)
+
+    # 3.5 Extract common budget expressions ("3 hazar tak", "under 3000").
+    entities.budget_min, entities.budget_max = _extract_budget(text)
 
     # 4. Extract category
     for keyword, category in CATEGORY_KEYWORDS.items():
@@ -162,14 +169,44 @@ def extract_entities(normalized_text: str, language: str = "english") -> Extract
     return entities
 
 
-def _extract_color(text: str) -> str | None:
+def _extract_color(text: str, excluded: list[str] | None = None) -> str | None:
     """Extract color from text, preferring multi-word colors."""
     for color in KNOWN_COLORS:
         # Use word boundary matching
         pattern = r'\b' + re.escape(color) + r'\b'
-        if re.search(pattern, text):
+        if re.search(pattern, text) and normalize_color(color) not in (excluded or []):
             return color
     return None
+
+
+def _extract_excluded_colors(text: str) -> list[str]:
+    excluded = []
+    for color in KNOWN_COLORS:
+        pattern = (
+            rf'\b(?:not|no)\s+{re.escape(color)}\b|'
+            rf'\b{re.escape(color)}\s+(?:nahi|nahin)\b|'
+            rf'\bke\s*ilawa\s+{re.escape(color)}\b'
+        )
+        if re.search(pattern, text):
+            excluded.append(normalize_color(color))
+    return excluded
+
+
+def _extract_budget(text: str) -> tuple[float | None, float | None]:
+    amount = r'(\d+(?:\.\d+)?)\s*(k|thousand|hazar|hazaar)?'
+    max_match = re.search(rf'(?:under|below|within|upto|up\s*to|tak|max(?:imum)?)\s*(?:rs\.?\s*)?{amount}', text)
+    if not max_match:
+        max_match = re.search(rf'(?:rs\.?\s*)?{amount}\s*(?:tak|ke\s*andar|se\s*kam)', text)
+    min_match = re.search(rf'(?:above|over|minimum|min|se\s*zyada)\s*(?:rs\.?\s*)?{amount}', text)
+
+    def value(match):
+        if not match:
+            return None
+        number = float(match.group(1))
+        multiplier = match.group(2)
+        return number * 1000 if multiplier in {"k", "thousand", "hazar", "hazaar"} else number
+
+    return value(min_match), value(max_match)
 
 
 def _extract_size_and_quantity(text: str, entities: ExtractedEntities):
@@ -184,10 +221,14 @@ def _extract_size_and_quantity(text: str, entities: ExtractedEntities):
             entities.quantity = int(match.group(1))
             break
 
-    # Then check for explicit size patterns ("size 40", "medium")
+    # Then check for explicit size patterns ("size 40", "medium"). Skip
+    # explicitly rejected choices: "large nahi, medium".
     for pattern in SIZE_PATTERNS:
-        match = pattern.search(text)
-        if match:
+        for match in pattern.finditer(text):
+            tail = text[match.end():match.end() + 12]
+            head = text[max(0, match.start() - 5):match.start()]
+            if re.match(r'\s*(?:nahi|nahin|not)\b', tail) or re.search(r'\bnot\s*$', head):
+                continue
             size_val = match.group(1).lower()
             # Normalize named sizes
             if size_val in SIZE_NORMALIZE:
@@ -200,7 +241,7 @@ def _extract_size_and_quantity(text: str, entities: ExtractedEntities):
                         entities.size = str(size_num)
                 except ValueError:
                     entities.size = size_val.title()
-            break
+            return
 
     # Disambiguation: if we found a number that could be either quantity or size
     # and it wasn't resolved by patterns above
@@ -233,6 +274,10 @@ def _extract_product_query(text: str, entities: ExtractedEntities) -> str | None
     if entities.quantity:
         query = re.sub(r'\b' + str(entities.quantity) + r'\s*(?:pieces?|pcs?|qty)?\b', '', query)
 
+    # Remove budgets and negative constraints; they are structured filters.
+    query = re.sub(r'\b(?:under|below|within|upto|up\s*to|max(?:imum)?|tak|ke\s*andar|se\s*kam)\b', '', query)
+    query = re.sub(r'\b\d+(?:\.\d+)?\s*(?:k|thousand|hazar|hazaar)?\b', '', query)
+
     # Remove noise words (Roman Urdu + English)
     noise_words = {
         'mein', 'hai', 'hain', 'kya', 'kia', 'konsa', 'kuch', 'koi', 'ka', 'ki', 'ke', 'ko', 'se',
@@ -240,13 +285,16 @@ def _extract_product_query(text: str, entities: ExtractedEntities) -> str | None
         'price', 'kimat', 'qeemat', 'rate', 'kitne', 'kitna', 'kitni',
         'bata', 'batao', 'bataen', 'dein', 'dijiye', 'dikhao', 'dikha',
         'show', 'me', 'the', 'a', 'an', 'is', 'are', 'in', 'for',
-        'and', 'or', 'i', 'want', 'need', 'looking', 'cod', 'cash',
+        'and', 'or', 'i', 'want', 'need', 'looking', 'cod', 'cash', 'mujhe', 'mujhey',
         'on', 'delivery', 'return', 'exchange', 'charges', 'shipping',
         'din', 'days', 'please', 'plz', 'thanks', 'thank', 'you',
         'wala', 'wali', 'walay', 'pieces', 'piece', 'pcs',
         'chahiye', 'mangwana', 'lena', 'kharidna', 'buy', 'purchase',
         'size', 'color', 'rang', 'hogi', 'hoga', 'hoge',
-        'do', 'de', 'lo', 'le', 'kar', 'karo', 'karein',
+        'do', 'de', 'lo', 'le', 'kar', 'karo', 'karein', 'same', 'this',
+        'that', 'ye', 'yeh', 'woh', 'photo', 'photos', 'pic', 'pics',
+        'image', 'images', 'bhejo', 'bhej', 'send', 'available',
+        'nahi', 'nahin', 'not', 'no', 'acha', 'achi', 'sa',
     }
 
     # Strip punctuation from tokens before filtering

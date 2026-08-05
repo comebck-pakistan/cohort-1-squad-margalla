@@ -1,0 +1,3 @@
+{"conversation_id":"browse-1","store_id":"demo-store-fashion","customer_number":"eval-0001","message":"maroon kurta dikhao","expected_action":"product_search","expected_product_id":"prod-kurta-emb-001","expected_entities":{"color":"maroon"},"expected_disposition":"answer"}
+{"conversation_id":"browse-1","store_id":"demo-store-fashion","customer_number":"eval-0001","message":"medium?","expected_product_id":"prod-kurta-emb-001","expected_entities":{"size":"Medium"},"expected_disposition":"answer"}
+{"conversation_id":"browse-1","store_id":"demo-store-fashion","customer_number":"eval-0001","message":"send pics","expected_action":"picture_request","expected_product_id":"prod-kurta-emb-001","expected_disposition":"answer"}

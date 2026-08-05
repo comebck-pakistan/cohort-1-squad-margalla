@@ -29,7 +29,7 @@ services:
       retries: 5
 
   evolution-api:
-    image: evoapicloud/evolution-api:v2.3.7
+    image: evoapicloud/evolution-api:latest
     container_name: wcc-evolution
     ports:
       - "8081:8080"
@@ -63,10 +63,15 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://wcc_user:${POSTGRES_PASSWORD:-wcc_dev_password}@postgres:5432/whatsapp_commerce
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-token}
-      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}
       BACKEND_URL: http://backend:8000
       GATEWAY_URL: http://gateway:3001
     depends_on:
@@ -88,7 +93,8 @@ services:
       EVOLUTION_API_URL: http://evolution-api:8080
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-evo-dev-key}
       EVOLUTION_WEBHOOK_URL: http://gateway:3001/webhook/evolution
-      EVOLUTION_API_VERSION: "2.3.7"
+      EVOLUTION_API_VERSION: "latest"
+      MAX_INBOUND_AGE_SECONDS: ${MAX_INBOUND_AGE_SECONDS:-300}
     depends_on:
       - backend
       - evolution-api
