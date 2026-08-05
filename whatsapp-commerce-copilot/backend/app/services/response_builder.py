@@ -1,12 +1,15 @@
 """Response builder — creates grounded, traceable responses.
 
 Every response includes source references. The LLM never invents data.
+All customer-facing strings come from app.services.i18n so that English
+and Urdu are both supported without scattered if/else blocks.
 """
 from dataclasses import dataclass, field
 from app.services.catalog_search import CatalogSearchResult, MatchedProduct
 from app.services.policy_matcher import PolicyMatchResult
 from app.services.entity_extractor import ExtractedEntities
 from app.services.intent_detector import IntentResult
+from app.services.i18n import t
 
 
 @dataclass
@@ -46,6 +49,15 @@ class ProcessedResponse:
         }
 
 
+def _lang(store_language: str) -> str:
+    """Normalise store_language to i18n lang code ('en' or 'ur')."""
+    if store_language == "ur":
+        return "ur"
+    if store_language == "roman_urdu":
+        return "ur"   # Roman Urdu input → Urdu-script response
+    return "en"
+
+
 class ResponseBuilder:
     """Build grounded responses from pipeline results."""
 
@@ -81,11 +93,12 @@ class ResponseBuilder:
         store_language: str,
     ) -> ProcessedResponse:
         """Build response for a single matched product."""
+        lang = _lang(store_language)
         product = match.product
         sources = [f"catalog:product:{product.id}"]
         parts: list[str] = []
 
-        # Product info
+        # Product name (never translated — it's a catalogue identifier)
         parts.append(f"*{product.name}*")
 
         # Variant info
@@ -96,33 +109,23 @@ class ResponseBuilder:
                 if variant.color:
                     variant_desc.append(variant.color.title())
                 if variant.size:
-                    variant_desc.append(f"Size {variant.size}")
+                    variant_desc.append(f"{t('label_size', lang)} {variant.size}")
 
                 desc = " | ".join(variant_desc) if variant_desc else "Default"
 
                 # Stock status
                 if variant.stock > 0:
-                    if store_language == "roman_urdu":
-                        stock_msg = f"Available hai (Stock: {variant.stock})"
-                    else:
-                        stock_msg = f"Available (Stock: {variant.stock})"
+                    stock_msg = t("stock_available", lang, stock=variant.stock)
                 else:
-                    if store_language == "roman_urdu":
-                        stock_msg = "Abhi stock mein nahi hai"
-                    else:
-                        stock_msg = "Currently out of stock"
+                    stock_msg = t("stock_out", lang)
 
                 parts.append(f"  {desc}: Rs. {variant.price:,.0f} — {stock_msg}")
 
-            # Use first matched variant as the selected one
-            matched_variant = match.matched_variants[0] if match.matched_variants else None
+            matched_variant = match.matched_variants[0] if len(match.matched_variants) == 1 else None
         else:
             # No variants matched the filter — show all
             if product.variants:
-                if store_language == "roman_urdu":
-                    parts.append("Available variants:")
-                else:
-                    parts.append("Available variants:")
+                parts.append(t("product_variants_label", lang))
                 for variant in product.variants:
                     if not variant.is_active:
                         continue
@@ -131,9 +134,13 @@ class ResponseBuilder:
                     if variant.color:
                         v_parts.append(variant.color.title())
                     if variant.size:
-                        v_parts.append(f"Size {variant.size}")
+                        v_parts.append(f"{t('label_size', lang)} {variant.size}")
                     desc = " | ".join(v_parts) if v_parts else "Default"
-                    stock_str = f"Stock: {variant.stock}" if variant.stock > 0 else "Out of stock"
+                    stock_str = (
+                        f"{t('label_size', lang)}: {variant.stock}"
+                        if variant.stock > 0
+                        else t("out_of_stock_label", lang)
+                    )
                     parts.append(f"  {desc}: Rs. {variant.price:,.0f} — {stock_str}")
             matched_variant = None
 
@@ -159,8 +166,30 @@ class ResponseBuilder:
                 "color": entities.color,
                 "size": entities.size,
                 "quantity": entities.quantity,
+                "budget_min": entities.budget_min,
+                "budget_max": entities.budget_max,
+                "excluded_colors": entities.excluded_colors,
                 "requested_fields": intent.requested_fields,
             },
+        )
+
+    def build_contextual_fallback_response(
+        self,
+        intent: str,
+        store_language: str,
+    ) -> ProcessedResponse:
+        """Respond to non-product turns without claiming a catalogue miss."""
+        lang = _lang(store_language)
+        key_map = {
+            "acknowledgement": "fallback_ack",
+            "unsupported": "fallback_unsupported",
+            "unknown": "fallback_unknown",
+        }
+        key = key_map.get(intent, "fallback_unknown")
+        return ProcessedResponse(
+            message=t(key, lang),
+            intent=intent,
+            confidence=0.9 if intent != "unknown" else 0.2,
         )
 
     def _ambiguous_products(
@@ -170,16 +199,11 @@ class ResponseBuilder:
         store_language: str,
     ) -> ProcessedResponse:
         """Build clarification response for ambiguous matches."""
+        lang = _lang(store_language)
         if search_result.source_type == "generic":
-            if store_language == "roman_urdu":
-                header = "Hamare paas yeh products available hain:"
-            else:
-                header = "Here are some of our available products:"
+            header = t("product_available_list", lang)
         else:
-            if store_language == "roman_urdu":
-                header = "Aap kis product ki baat kar rahe hain?"
-            else:
-                header = "Which product are you referring to?"
+            header = t("product_choice", lang)
 
         options = []
         sources = []
@@ -212,15 +236,10 @@ class ResponseBuilder:
         store_language: str,
     ) -> ProcessedResponse:
         """Build not-found response."""
+        lang = _lang(store_language)
         query = entities.product_query or entities.category or "this product"
-
-        if store_language == "roman_urdu":
-            message = f"Maaf kijiye, '{query}' hamare catalog mein nahi mila. Kya aap aur detail bata sakte hain?"
-        else:
-            message = f"Sorry, we couldn't find '{query}' in our catalog. Could you provide more details?"
-
         return ProcessedResponse(
-            message=message,
+            message=t("product_not_found", lang, query=query),
             intent="product_search",
             confidence=0.0,
             extracted_entities={
@@ -237,6 +256,7 @@ class ResponseBuilder:
         store_language: str = "roman_urdu",
     ) -> ProcessedResponse:
         """Build response for pure policy queries."""
+        lang = _lang(store_language)
         sources = []
         messages = []
 
@@ -253,23 +273,21 @@ class ResponseBuilder:
                 sources=sources,
             )
 
-        if store_language == "roman_urdu":
-            msg = "Is baare mein filhaal information available nahi hai. Kya aap kuch aur poochna chahein ge?"
-        else:
-            msg = "We don't have information about that right now. Can I help with something else?"
-
         return ProcessedResponse(
-            message=msg,
+            message=t("policy_not_found", lang),
             intent=intent.intent,
             confidence=0.3,
         )
 
-    def build_greeting_response(self, store_name: str, store_language: str = "roman_urdu") -> ProcessedResponse:
+    def build_greeting_response(
+        self, store_name: str, store_language: str = "roman_urdu", has_context: bool = False
+    ) -> ProcessedResponse:
         """Build greeting response."""
-        if store_language == "roman_urdu":
-            message = f"Assalam o Alaikum! {store_name} mein khush aamdeed. Aap kya dhundh rahe hain?"
+        lang = _lang(store_language)
+        if has_context:
+            message = t("welcome_returning", lang)
         else:
-            message = f"Hello! Welcome to {store_name}. How can I help you today?"
+            message = t("welcome", lang, store=store_name)
 
         return ProcessedResponse(
             message=message,
@@ -283,13 +301,9 @@ class ResponseBuilder:
         store_language: str = "roman_urdu",
     ) -> ProcessedResponse:
         """Build human handoff response."""
-        if store_language == "roman_urdu":
-            message = "Aap ko humare team member se connect kiya ja raha hai. Thoda intezaar karein."
-        else:
-            message = "I'm connecting you with a team member. Please wait a moment."
-
+        lang = _lang(store_language)
         return ProcessedResponse(
-            message=message,
+            message=t("handoff", lang),
             intent="human_agent_request",
             confidence=1.0,
             needs_human=True,
@@ -298,13 +312,9 @@ class ResponseBuilder:
 
     def build_error_response(self, store_language: str = "roman_urdu") -> ProcessedResponse:
         """Build error/fallback response."""
-        if store_language == "roman_urdu":
-            message = "Maaf kijiye, mujhe samajh nahi aaya. Kya aap dobara bata sakte hain?"
-        else:
-            message = "Sorry, I didn't understand that. Could you please rephrase?"
-
+        lang = _lang(store_language)
         return ProcessedResponse(
-            message=message,
+            message=t("error_retry", lang),
             intent="unknown",
             confidence=0.0,
         )

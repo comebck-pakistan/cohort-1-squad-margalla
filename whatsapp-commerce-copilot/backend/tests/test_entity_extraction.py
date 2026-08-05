@@ -45,6 +45,10 @@ class TestSizeExtraction:
         assert result.size is not None
         assert result.size.lower() == "large"
 
+    def test_negative_size_constraint(self):
+        result = extract_entities(normalize_text("large nahi to medium hai"))
+        assert result.size == "Medium"
+
 
 class TestQuantityVsSizeDisambiguation:
     def test_2_pieces_size_40(self):
@@ -56,6 +60,17 @@ class TestQuantityVsSizeDisambiguation:
     def test_3_pieces(self):
         result = extract_entities(normalize_text("3 pieces chahiye"))
         assert result.quantity == 3
+
+
+class TestBudgetAndNegativeConstraints:
+    def test_roman_urdu_budget(self):
+        result = extract_entities(normalize_text("koi acha sa 3 hazar tak dikhao"))
+        assert result.budget_max == 3000
+
+    def test_excluded_color(self):
+        result = extract_entities(normalize_text("black nahi blue kurta dikhao"))
+        assert "black" in result.excluded_colors
+        assert result.color == "blue"
 
 
 class TestSKUExtraction:

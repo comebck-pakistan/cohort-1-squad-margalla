@@ -16,6 +16,9 @@ const config = {
   // Webhook security: shared secret that Evolution API includes in webhook payloads
   // This is the same as evolutionApiKey — Evolution API sends it in the 'apikey' field of webhook payloads
   webhookSecret: process.env.EVOLUTION_API_KEY || '',
+  // Ignore history-sync/reconnect traffic. Live notifications normally arrive
+  // within seconds; this allows a small delivery/retry window.
+  maxInboundAgeSeconds: Number(process.env.MAX_INBOUND_AGE_SECONDS || 300),
 };
 
 module.exports = config;

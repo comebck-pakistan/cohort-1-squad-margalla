@@ -20,7 +20,12 @@ class Settings(BaseSettings):
     INTERNAL_SERVICE_TOKEN: str = "dev-internal-token"
 
     # AI Provider
-    AI_PROVIDER: str = "mock"
+    AI_PROVIDER: str = "gemini"
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    GEMINI_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_MODEL: str = "openai/gpt-4o-mini"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
@@ -31,7 +36,7 @@ class Settings(BaseSettings):
     GATEWAY_URL: str = "http://localhost:3001"
 
     # CORS
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
 
     # Rate Limiting
     RATE_LIMIT_DEMO: str = "10/minute"

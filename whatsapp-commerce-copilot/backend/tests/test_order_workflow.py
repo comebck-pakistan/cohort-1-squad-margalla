@@ -126,15 +126,17 @@ class TestOrderSummary:
         conversation.payment_method = "COD"
 
         summary = manager.build_order_summary(conversation, product, variant, "roman_urdu")
-        assert "Order Summary" in summary
-        assert "Women's Embroidered Kurta" in summary
-        assert "sky blue" in summary
-        assert "medium" in summary
+        # roman_urdu store_language now maps to Urdu-script output
+        assert "Women's Embroidered Kurta" in summary  # product name never translated
+        assert "sky blue" in summary  # colour string from DB never translated
+        assert "medium" in summary    # size string from DB never translated
         assert "2" in summary
         assert "5,000" in summary  # 2500 × 2
         assert "Ali Hassan" in summary
         assert "COD" in summary
-        assert "confirm" in summary.lower()
+        # Summary should contain the Urdu-script confirm prompt
+        urdu_chars = [c for c in summary if 0x0600 <= ord(c) <= 0x06FF]
+        assert len(urdu_chars) > 0, "roman_urdu summary should contain Urdu Unicode characters"
 
 
 class TestOrderCreation:
@@ -176,7 +178,9 @@ class TestNextPrompt:
         conversation.order_stage = "PRODUCT_SELECTED"
         prompt = manager.get_next_prompt(conversation, "roman_urdu")
         assert prompt is not None
-        assert "color" in prompt.lower() or "size" in prompt.lower()
+        # roman_urdu → Urdu-script prompt; check it has Urdu Unicode characters
+        urdu_chars = [c for c in prompt if 0x0600 <= ord(c) <= 0x06FF]
+        assert len(urdu_chars) > 0, "roman_urdu prompt should be Urdu script"
 
     def test_prompt_for_variant_selected(self, manager, conversation):
         conversation.order_stage = "VARIANT_SELECTED"

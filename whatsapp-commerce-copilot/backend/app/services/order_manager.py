@@ -11,6 +11,7 @@ import uuid
 from app.models.conversation import Conversation
 from app.models.order import Order, OrderItem
 from app.models.product import Product, ProductVariant
+from app.services.i18n import t
 
 # Valid order stages
 ORDER_STAGES = [
@@ -26,6 +27,13 @@ ORDER_STAGES = [
 ]
 
 
+def _lang(store_language: str) -> str:
+    """Normalise store_language to i18n code."""
+    if store_language in ("ur", "roman_urdu"):
+        return "ur"
+    return "en"
+
+
 class OrderManager:
     """Manage order state machine and order creation."""
 
@@ -35,29 +43,21 @@ class OrderManager:
         store_language: str = "roman_urdu",
     ) -> str | None:
         """Get the next prompt to show customer based on order stage."""
+        lang = _lang(store_language)
         stage = conversation.order_stage
 
-        prompts = {
-            "roman_urdu": {
-                "PRODUCT_SELECTED": "Kaunsa color aur size chahiye?",
-                "VARIANT_SELECTED": "Kitne pieces chahiye?",
-                "QUANTITY_SELECTED": "Order ke liye apna naam aur phone number bataen.",
-                "CUSTOMER_DETAILS_REQUIRED": "Delivery address aur city bataen.",
-                "ADDRESS_REQUIRED": "Payment method kya hoga? (COD / Online)",
-                "PAYMENT_METHOD_REQUIRED": None,  # Show summary
-            },
-            "english": {
-                "PRODUCT_SELECTED": "Which color and size would you like?",
-                "VARIANT_SELECTED": "How many pieces would you like?",
-                "QUANTITY_SELECTED": "Please provide your name and phone number for the order.",
-                "CUSTOMER_DETAILS_REQUIRED": "Please provide your delivery address and city.",
-                "ADDRESS_REQUIRED": "What payment method would you prefer? (COD / Online)",
-                "PAYMENT_METHOD_REQUIRED": None,  # Show summary
-            },
+        stage_key_map = {
+            "PRODUCT_SELECTED": "ask_color_size",
+            "VARIANT_SELECTED": "ask_quantity",
+            "QUANTITY_SELECTED": "ask_name_phone",
+            "CUSTOMER_DETAILS_REQUIRED": "ask_address",
+            "ADDRESS_REQUIRED": "ask_payment",
+            "PAYMENT_METHOD_REQUIRED": None,  # Show summary
         }
-
-        lang_prompts = prompts.get(store_language, prompts["english"])
-        return lang_prompts.get(stage)
+        key = stage_key_map.get(stage)
+        if key is None:
+            return None
+        return t(key, lang)
 
     def advance_stage(
         self,
@@ -116,37 +116,28 @@ class OrderManager:
         store_language: str = "roman_urdu",
     ) -> str:
         """Build order summary for confirmation."""
+        lang = _lang(store_language)
         qty = conversation.quantity or 1
         total = variant.price * qty
 
-        if store_language == "roman_urdu":
-            return (
-                f"📋 *Order Summary*\n\n"
-                f"Product: {product.name}\n"
-                f"Color: {variant.color or 'N/A'}\n"
-                f"Size: {variant.size or 'N/A'}\n"
-                f"Quantity: {qty}\n"
-                f"Price: Rs. {variant.price:,.0f} × {qty} = Rs. {total:,.0f}\n\n"
-                f"Naam: {conversation.customer_name}\n"
-                f"Phone: {conversation.customer_phone}\n"
-                f"Address: {conversation.customer_address}\n"
-                f"Payment: {conversation.payment_method}\n\n"
-                f"Kya aap yeh order confirm karna chahte hain? (Haan/Nahi)"
-            )
-        else:
-            return (
-                f"📋 *Order Summary*\n\n"
-                f"Product: {product.name}\n"
-                f"Color: {variant.color or 'N/A'}\n"
-                f"Size: {variant.size or 'N/A'}\n"
-                f"Quantity: {qty}\n"
-                f"Price: Rs. {variant.price:,.0f} × {qty} = Rs. {total:,.0f}\n\n"
-                f"Name: {conversation.customer_name}\n"
-                f"Phone: {conversation.customer_phone}\n"
-                f"Address: {conversation.customer_address}\n"
-                f"Payment: {conversation.payment_method}\n\n"
-                f"Would you like to confirm this order? (Yes/No)"
-            )
+        na = t("label_na", lang)
+        lines = [
+            t("order_summary_header", lang),
+            "",
+            f"{t('label_product', lang)}: {product.name}",
+            f"{t('label_color', lang)}: {variant.color or na}",
+            f"{t('label_size', lang)}: {variant.size or na}",
+            f"{t('label_quantity', lang)}: {qty}",
+            f"{t('label_price', lang)}: Rs. {variant.price:,.0f} × {qty} = Rs. {total:,.0f}",
+            "",
+            f"{t('label_name', lang)}: {conversation.customer_name}",
+            f"{t('label_phone', lang)}: {conversation.customer_phone}",
+            f"{t('label_address', lang)}: {conversation.customer_address}",
+            f"{t('label_payment', lang)}: {conversation.payment_method}",
+            "",
+            t("order_confirm_prompt", lang),
+        ]
+        return "\n".join(lines)
 
     def create_order(
         self,

@@ -17,6 +17,10 @@ class TestGreetings:
         result = detect_intent("hi")
         assert result.intent == "greeting"
 
+    def test_greeting_does_not_hide_product_question(self):
+        result = detect_intent("hi black kurta price")
+        assert result.intent == "price_query"
+
 
 class TestProductSearch:
     def test_product_with_availability(self):
@@ -74,3 +78,7 @@ class TestUnknown:
         result = detect_intent("asdfghjkl")
         # Should be product_search with low confidence or unknown
         assert result.confidence < 0.7
+
+    def test_link_is_not_a_product(self):
+        result = detect_intent("https://meet.google.com/example")
+        assert result.intent == "unsupported"

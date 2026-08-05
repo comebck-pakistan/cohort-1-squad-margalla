@@ -4,6 +4,8 @@ import { API_URL } from '../config';
 import { MessageSquare, Package, ShoppingCart, Power, Settings, HelpCircle, Phone } from 'lucide-react';
 
 const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, setWhatsappStatus, connectedNumber, activeTab, setActiveTab }) => {
+  const isConnecting = whatsappStatus === 'initializing' || whatsappStatus === 'waiting_for_qr';
+
   const handleConnect = async () => {
     try {
       await axios.post(`${API_URL}/stores/${currentStore}/whatsapp/connect`);
@@ -79,8 +81,8 @@ const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, set
             <Power size={14} /> Disconnect
           </button>
         ) : (
-          <button className="btn btn-primary" style={{ width: '100%', boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)' }} onClick={handleConnect} disabled={whatsappStatus === 'initializing'}>
-            <Power size={14} /> {whatsappStatus === 'initializing' ? 'Connecting...' : 'Connect'}
+          <button className="btn btn-primary" style={{ width: '100%', boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)' }} onClick={handleConnect} disabled={isConnecting}>
+            <Power size={14} /> {isConnecting ? 'Scan QR Code' : 'Connect'}
           </button>
         )}
       </div>

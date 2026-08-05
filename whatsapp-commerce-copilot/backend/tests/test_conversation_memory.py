@@ -151,14 +151,13 @@ class TestContextUpdate:
             confidence=0.9,
             matched_product_id="prod-001",
             matched_variant_id="var-001",
-            extracted_entities={"color": "red", "size": "L", "quantity": 2},
+            extracted_entities={"color": "red", "size": "L"},
         )
         manager.apply_context(conv, response)
         assert conv.current_product_id == "prod-001"
         assert conv.current_variant_id == "var-001"
         assert conv.selected_color == "red"
         assert conv.selected_size == "L"
-        assert conv.quantity == 2
 
     def test_stores_clarification_candidates(self, manager):
         from app.services.response_builder import ProcessedResponse

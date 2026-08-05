@@ -48,11 +48,21 @@ You're done! The dashboard will load and the backend services are all connected.
 3. Scan the QR code with your WhatsApp app (Linked Devices).
 4. You are now live! Any messages sent to that WhatsApp number will appear in the dashboard.
 
-## ⚙️ Advanced: Using Real AI (Optional)
-By default, the backend uses a "mock" AI so it works instantly offline. 
-If you want real AI processing (like OpenAI/GPT-4), edit the `.env` file in the root directory (create one if it doesn't exist) and add your OpenRouter API key:
+## ⚙️ Advanced: Using LangChain with Gemini (Optional)
+
+The backend keeps working with its deterministic catalogue pipeline when no AI
+key is present. To enable LangChain for customer queries, edit the root `.env`
+file and add:
+
 ```env
-AI_PROVIDER=openrouter
-OPENROUTER_API_KEY=your_key_here
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
+
+Every inbound demo or WhatsApp message then passes through the LangChain intent
+chain. LangChain response generation is used for ambiguous or low-confidence
+queries and receives only store-scoped products and policies retrieved by the
+backend.
+
 Then restart the backend: `docker compose restart backend`.

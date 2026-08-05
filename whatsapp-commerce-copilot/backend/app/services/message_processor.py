@@ -33,6 +33,11 @@ class MessageProcessor:
         store_language: str = "roman_urdu",
         store_id: str = "",
         customer_number: str = "",
+        contextual_product_id: str | None = None,
+        context_color: str | None = None,
+        context_size: str | None = None,
+        recently_shown_products: list[str] | None = None,
+        preferences: dict | None = None,
     ) -> ProcessedResponse:
         """Process a customer message through the full pipeline.
 
@@ -61,8 +66,11 @@ class MessageProcessor:
         intent_result = detect_intent(normalized)
 
         # Step 4: Handle greeting
-        if intent_result.intent == "greeting" and intent_result.confidence >= 0.8:
-            response = self.response_builder.build_greeting_response(store_name, store_language)
+        if intent_result.intent == "greeting" and intent_result.sub_intents == ["greeting"]:
+            has_context = bool(contextual_product_id or recently_shown_products)
+            response = self.response_builder.build_greeting_response(
+                store_name, store_language, has_context
+            )
             response.store_id = store_id
             response.customer_number = customer_number
             return response
@@ -85,8 +93,32 @@ class MessageProcessor:
             response.customer_number = customer_number
             return response
 
+        if intent_result.intent == "store_info":
+            policy_results = self.policy_matcher.match(policies, ["store_info"])
+            response = self.response_builder.build_policy_response(
+                policy_results, intent_result, store_language
+            )
+            response.store_id = store_id
+            response.customer_number = customer_number
+            return response
+
+        if (
+            intent_result.intent in {"acknowledgement", "unsupported"}
+            or (intent_result.intent == "unknown" and not contextual_product_id)
+        ):
+            response = self.response_builder.build_contextual_fallback_response(
+                intent_result.intent, store_language
+            )
+            response.store_id = store_id
+            response.customer_number = customer_number
+            return response
+
         # Step 7: Extract entities
         entities = extract_entities(normalized, language)
+        if not entities.color and context_color:
+            entities.color = context_color
+        if not entities.size and context_size:
+            entities.size = context_size
 
         # Step 8: Pure policy query (no product reference)
         policy_intents = {'cod_query', 'delivery_query', 'returns_query', 'exchange_query'}
@@ -133,8 +165,11 @@ class MessageProcessor:
         # If no product_query but we have color/size, search by those attributes
         search_query = entities.product_query
         search_category = entities.category
-        if not search_query and not entities.sku and not search_category:
-            if entities.color or entities.size:
+        if not search_query and not entities.sku and not search_category and not contextual_product_id:
+            if (
+                entities.color or entities.size or entities.budget_min is not None
+                or entities.budget_max is not None or entities.excluded_colors
+            ):
                 # Search by color/size across all products (context-dependent followup)
                 search_query = None  # Will search all products, filter by color/size
             else:
@@ -151,6 +186,12 @@ class MessageProcessor:
             color=entities.color,
             size=entities.size,
             category=entities.category,
+            product_id=contextual_product_id,
+            budget_min=entities.budget_min,
+            budget_max=entities.budget_max,
+            excluded_colors=entities.excluded_colors,
+            recently_shown_products=recently_shown_products,
+            preferences=preferences,
         )
 
         # Step 10: Match policies if requested
@@ -166,6 +207,20 @@ class MessageProcessor:
             policy_results=policy_results,
             store_language=store_language,
         )
+        if intent_result.intent == "picture_request" and response.matched_product_id and not response.image_url:
+            response.message += (
+                "\nIs product ki picture abhi catalog mein upload nahi hai."
+                if store_language == "roman_urdu"
+                else "\nA picture for this product has not been uploaded yet."
+            )
+        if intent_result.intent == "negotiation" and response.matched_product_id:
+            response.message += (
+                "\nYeh catalog price hai. Special discount ke liye team member se confirm karwa deta hoon."
+                if store_language == "roman_urdu"
+                else "\nThis is the catalog price. I can ask a team member to confirm any special discount."
+            )
+            response.needs_human = True
+            response.escalation_reason = "negotiation"
         response.store_id = store_id
         response.customer_number = customer_number
 

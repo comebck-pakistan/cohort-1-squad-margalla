@@ -1,6 +1,6 @@
 # Current Status
 
-> Last updated: 2026-07-28T13:40:00+05:00
+> Last updated: 2026-07-30
 
 ## Status Snapshot
 
@@ -9,23 +9,23 @@
 | Project structure | ✅ Complete |
 | DB models | ✅ Complete (12 models) |
 | Seed data | ✅ Complete (2 stores, 8 products) |
-| Rule-based pipeline | ✅ Complete |
+| Conversation-aware pipeline | ✅ Connected to demo and live routes |
 | Simulator endpoint | ✅ Complete |
-| AI provider | ✅ Complete |
-| Conversation memory | ✅ Complete |
-| Order workflow | ✅ Complete |
+| AI provider | ✅ Connected with closed-candidate ID validation |
+| Conversation memory | ✅ Connected to live processing |
+| Order workflow | ✅ Connected end-to-end, including corrections/cancel/status |
 | WhatsApp gateway | ✅ Migrated to Evolution API v2.3.7 |
 | QR + session APIs | ✅ Complete |
 | Dashboard | ✅ Complete |
 | Human handoff | ✅ Complete |
-| Full test suite | ✅ Complete (110 tests passing) |
+| Full test suite | ✅ Complete (118 backend + 4 gateway tests passing) |
 | Docker | ✅ Updated (Evolution API + Redis services) |
 
 ## Test Suite — PASSED ✅
 
 ```
 $ cd backend && ./venv/bin/python -m pytest tests/ -v --tb=short
-======================= 110 passed, 2 warnings in 2.34s ========================
+======================= 118 passed ========================
 ```
 
 ## Demo Simulator — WORKING ✅
@@ -71,3 +71,7 @@ $ curl -s http://localhost:3001/health
 - Evolution API service must be installed and running locally for real WhatsApp connection
 - Redis must be running for Evolution API
 - QR → connected flow not tested (requires running Evolution API + real WhatsApp device)
+- Production databases created before 2026-07-30 must apply
+  `backend/migrations/20260730_add_message_idempotency.sql`
+- Real-message quality still depends on collecting and anonymizing merchant
+  conversations; synthetic tests cannot substitute for that dataset

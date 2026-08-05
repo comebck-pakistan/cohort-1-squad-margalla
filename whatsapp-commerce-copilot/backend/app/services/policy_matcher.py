@@ -23,6 +23,7 @@ class PolicyMatcher:
         "returns": "returns",
         "exchange": "exchange",
         "delivery_locations": "delivery_locations",
+        "store_info": "store_info",
     }
 
     def match(

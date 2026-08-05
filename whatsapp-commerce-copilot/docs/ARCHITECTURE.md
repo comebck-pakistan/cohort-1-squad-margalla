@@ -24,11 +24,12 @@ Customer WhatsApp Message
     → Text Normalization
     → Language Detection
     → Intent Detection
+    → LangChain structured intent classification (when configured)
     → Entity Extraction
     → Catalog Search (store-scoped)
     → Policy Matching (store-scoped)
     → Response Building (grounded, traceable)
-    → [Optional] AI Provider for phrasing
+    → [Optional] LangChain grounded response chain for phrasing
     → Response returned to adapter
     → Adapter calls Evolution API sendText
     → Customer receives reply
