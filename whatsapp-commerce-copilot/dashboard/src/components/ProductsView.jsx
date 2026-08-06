@@ -20,7 +20,7 @@ const ProductsView = ({ storeId }) => {
         setLoading(false);
       }
     };
-    
+
     fetchProducts();
   }, [storeId]);
 
@@ -57,6 +57,37 @@ const ProductsView = ({ storeId }) => {
     }
   };
 
+  const handleImageUpload = async (productId, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      await axios.put(`${API_URL}/stores/${storeId}/products/${productId}/image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      refreshProducts();
+    } catch (err) {
+      console.error('Failed to update image', err);
+      alert('Failed to update image.');
+    }
+  };
+
+  const handleDeleteImage = async (productId) => {
+    if (!window.confirm("Remove image?")) return;
+    try {
+      await axios.delete(`${API_URL}/stores/${storeId}/products/${productId}/image`);
+      refreshProducts();
+    } catch (err) {
+      console.error('Failed to delete image', err);
+      alert('Failed to delete image.');
+    }
+  };
+
   // Helper to generate a dummy gradient based on category
   const getGradient = (category) => {
     if (category.toLowerCase().includes('sneaker')) {
@@ -72,7 +103,7 @@ const ProductsView = ({ storeId }) => {
   return (
     <div style={{ flex: 1, padding: '0 2.5rem 2.5rem', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           style={{
             padding: '0.5rem 1rem',
@@ -92,11 +123,11 @@ const ProductsView = ({ storeId }) => {
       {loading ? (
         <div style={{ color: 'var(--text-secondary)' }}>Loading products...</div>
       ) : products.length === 0 ? (
-        <div className="grid-background" style={{ 
-          padding: '3rem', 
-          textAlign: 'center', 
-          color: 'var(--text-secondary)', 
-          background: 'var(--bg-panel)', 
+        <div className="grid-background" style={{
+          padding: '3rem',
+          textAlign: 'center',
+          color: 'var(--text-secondary)',
+          background: 'var(--bg-panel)',
           borderRadius: '16px',
           border: '1px solid var(--border-color)'
         }}>
@@ -105,19 +136,19 @@ const ProductsView = ({ storeId }) => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '2rem' }}>
           {products.map(product => (
-            <div key={product.id} style={{ 
-              background: 'var(--bg-panel)', 
-              borderRadius: '16px', 
-              border: '1px solid var(--border-color)', 
-              overflow: 'hidden', 
-              display: 'flex', 
+            <div key={product.id} style={{
+              background: 'var(--bg-panel)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              overflow: 'hidden',
+              display: 'flex',
               flexDirection: 'column',
               boxShadow: 'var(--shadow-md)'
             }}>
-              
+
               {/* Image Placeholder or Actual Image */}
-              <div style={{ 
-                height: '180px', 
+              <div style={{
+                height: '180px',
                 background: product.image_url ? '#fff' : getGradient(product.category),
                 position: 'relative',
                 display: 'flex',
@@ -126,10 +157,10 @@ const ProductsView = ({ storeId }) => {
                 overflow: 'hidden'
               }}>
                 {product.image_url ? (
-                  <img 
-                    src={product.image_url.startsWith('http') ? product.image_url : `${API_URL.replace('/api', '')}${product.image_url}`} 
-                    alt={product.name} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  <img
+                    src={product.image_url.startsWith('http') ? product.image_url : `${API_URL.replace('/api', '')}${product.image_url}`}
+                    alt={product.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 ) : (
                   <>
@@ -143,48 +174,93 @@ const ProductsView = ({ storeId }) => {
                       left: '50%',
                       transform: 'translateX(-50%)'
                     }}></div>
-                    
+
                     <span style={{ color: 'rgba(0,0,0,0.08)', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>
                       {product.category}
                     </span>
                   </>
                 )}
 
-                <span style={{ 
+                <span style={{
                   position: 'absolute',
                   top: '1rem',
                   right: '1rem',
-                  fontSize: '0.7rem', 
-                  background: 'rgba(255,255,255,0.7)', 
+                  fontSize: '0.7rem',
+                  background: 'rgba(255,255,255,0.7)',
                   backdropFilter: 'blur(4px)',
-                  color: 'var(--text-primary)', 
-                  padding: '0.3rem 0.6rem', 
+                  color: 'var(--text-primary)',
+                  padding: '0.3rem 0.6rem',
                   borderRadius: '12px',
                   border: '1px solid rgba(0,0,0,0.05)',
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   {product.category}
                 </span>
+
+                <div style={{
+                  position: 'absolute',
+                  bottom: '0.5rem',
+                  right: '0.5rem',
+                  display: 'flex',
+                  gap: '0.5rem'
+                }}>
+                  <label htmlFor={`img-upload-${product.id}`} style={{
+                    fontSize: '0.7rem',
+                    background: 'rgba(255,255,255,0.9)',
+                    color: 'var(--text-primary)',
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    border: '1px solid var(--border-color)',
+                    fontWeight: 600
+                  }}>
+                    Replace Image
+                  </label>
+                  <input
+                    type="file"
+                    id={`img-upload-${product.id}`}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={(e) => handleImageUpload(product.id, e)}
+                  />
+                  {product.image_url && (
+                    <button
+                      onClick={() => handleDeleteImage(product.id)}
+                      style={{
+                        fontSize: '0.7rem',
+                        background: 'var(--danger)',
+                        color: 'white',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        border: 'none',
+                        fontWeight: 600
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
-              
+
               {/* Product Details */}
               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                     {product.name}
                   </h3>
-                  <button 
-                    onClick={() => handleDeleteProduct(product.id)} 
+                  <button
+                    onClick={() => handleDeleteProduct(product.id)}
                     style={{ color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600 }}
                   >
                     Delete
                   </button>
                 </div>
-                
+
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {product.description || `Premium ${product.category} for your everyday style.`}
                 </p>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--accent-primary)' }}>
                     Rs. {product.base_price.toLocaleString()}
@@ -193,7 +269,7 @@ const ProductsView = ({ storeId }) => {
                     SKU: {product.sku}
                   </span>
                 </div>
-                
+
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
                   <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1rem', fontWeight: 600, letterSpacing: '0.5px' }}>
                     Variants
@@ -206,7 +282,7 @@ const ProductsView = ({ storeId }) => {
                           {v.size && <span style={{ color: 'var(--text-muted)', margin: '0 0.4rem' }}>•</span>}
                           {v.size && <span>{v.size}</span>}
                         </span>
-                        
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button onClick={() => handleUpdateStock(product.id, v.stock, -1)} style={{ background: 'var(--bg-panel-hover)', border: '1px solid var(--border-color)', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>-</button>
                           <span style={{ color: v.stock > 0 ? 'var(--text-secondary)' : 'var(--danger)', fontSize: '0.8rem', fontWeight: 600, minWidth: '1.5rem', textAlign: 'center' }}>
@@ -219,17 +295,17 @@ const ProductsView = ({ storeId }) => {
                   </div>
                 </div>
               </div>
-              
+
             </div>
           ))}
         </div>
       )}
 
       {showAddModal && (
-        <AddProductModal 
-          storeId={storeId} 
-          onClose={() => setShowAddModal(false)} 
-          onProductAdded={refreshProducts} 
+        <AddProductModal
+          storeId={storeId}
+          onClose={() => setShowAddModal(false)}
+          onProductAdded={refreshProducts}
         />
       )}
     </div>

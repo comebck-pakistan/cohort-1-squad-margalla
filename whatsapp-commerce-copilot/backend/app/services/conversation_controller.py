@@ -55,7 +55,7 @@ class ConversationController:
             if llm_classification.intent and llm_classification.intent != "unknown":
                 intent.intent = llm_classification.intent
                 intent.confidence = llm_classification.confidence
-            
+
             if intent.intent == "product_search":
                 if llm_classification.product_query:
                     entities.product_query = llm_classification.product_query
@@ -64,7 +64,7 @@ class ConversationController:
                     # but product_query is empty, use the reference to search context.
                     if not entities.product_query:
                         entities.product_query = llm_classification.reference
-                
+
                 # Merge AI extracted entities
                 if llm_classification.entities.category:
                     entities.category = llm_classification.entities.category
@@ -76,7 +76,7 @@ class ConversationController:
                     # Stash style in product_query if empty, otherwise it's in preferences
                     if not entities.product_query:
                         entities.product_query = llm_classification.entities.style
-                        
+
             elif intent.intent in {"greeting", "unknown", "acknowledgement"}:
                 entities.product_query = None
 
@@ -400,7 +400,7 @@ class ConversationController:
         }
         if ai.selected_variant_id and ai.selected_variant_id not in allowed_variants:
             return response
-            
+
         authoritative_image_url = None
         if ai.selected_product_id:
             for p in candidates:
@@ -408,24 +408,23 @@ class ConversationController:
                     authoritative_image_url = p.get("image_url")
                     break
 
-        # Server-side validation against AI future promises
-        lower_msg = ai.response_message.lower()
-        if any(phrase in lower_msg for phrase in [
-            "fetching", "hold on", "sending the picture", "sending pictures", 
-            "will send", "fetch", "wait a moment", "sending it now"
-        ]):
-            # If it promised a picture but we have one, just say here is the picture.
-            # If we don't have one, the deterministic response would have been safer.
-            # We'll just reject the AI response entirely and fall back to the deterministic one.
+        # Server-side validation against AI future promises (English, Roman Urdu, Urdu script)
+        if self._detect_future_action_promise(ai.response_message):
+            # Reject AI response and fall back to the deterministic one.
             return response
+
+        # Preserve deterministic image and variants if AI didn't select a valid one
+        final_product_id = ai.selected_product_id if ai.selected_product_id else response.matched_product_id
+        final_variant_id = ai.selected_variant_id if ai.selected_variant_id else response.matched_variant_id
+        final_image_url = authoritative_image_url if ai.selected_product_id else response.image_url
 
         return ProcessedResponse(
             message=ai.response_message,
             intent=response.intent,
             confidence=ai.confidence,
-            matched_product_id=ai.selected_product_id,
-            matched_variant_id=ai.selected_variant_id,
-            image_url=authoritative_image_url,
+            matched_product_id=final_product_id,
+            matched_variant_id=final_variant_id,
+            image_url=final_image_url,
             sources=response.sources,
             extracted_entities=response.extracted_entities,
             needs_clarification=ai.clarification_needed,
@@ -497,6 +496,37 @@ class ConversationController:
             store_id=base.store_id,
             customer_number=base.customer_number,
         )
+
+    @staticmethod
+    def _detect_future_action_promise(message: str) -> bool:
+        """Detect if the message promises a future action like fetching images."""
+        if not message:
+            return False
+
+        import re
+        cleaned = re.sub(r'[^\w\s]', ' ', message.lower())
+        cleaned = " ".join(cleaned.split())
+
+        phrases = [
+            "fetching", "hold on", "sending the picture", "sending pictures",
+            "will send", "fetch", "wait a moment", "sending it now", "shortly",
+            "bhej rahi hoon", "bhejta hoon", "bhej raha hoon", "wait karein", "wait karain",
+            "tasveer bhejta", "tasveer bhej rahi", "bhej deiti hoon", "tasveer bhejta hoon",
+            "تصویر بھیج", "تصویریں", "انتظار کریں", "بھیج رہا", "بھیج رہی"
+        ]
+
+        cleaned_phrases = [" ".join(re.sub(r'[^\w\s]', ' ', p).split()) for p in phrases]
+
+        for phrase in cleaned_phrases:
+            if phrase in cleaned:
+                return True
+
+        lower_msg = message.lower()
+        for phrase in phrases:
+            if phrase in lower_msg:
+                return True
+
+        return False
 
     @staticmethod
     def _product_payload(product):

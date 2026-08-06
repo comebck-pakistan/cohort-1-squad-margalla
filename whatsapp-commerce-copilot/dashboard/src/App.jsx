@@ -26,7 +26,7 @@ function App() {
         console.error("Failed to load store", err);
       }
     };
-    
+
     const fetchWhatsapp = async () => {
       try {
         const res = await axios.get(`${API_URL}/stores/${currentStore}/whatsapp/status`);
@@ -43,16 +43,50 @@ function App() {
 
     fetchStore();
     fetchWhatsapp();
-    
-    // Poll whatsapp status occasionally
-    const interval = setInterval(fetchWhatsapp, 5000);
-    return () => clearInterval(interval);
   }, [currentStore]);
+
+  // Handle background polling when not in QR connection phase
+  useEffect(() => {
+    let isMounted = true;
+    let pollTimer = null;
+    let isPolling = false;
+
+    const pollWhatsapp = async () => {
+      if (!isMounted || isPolling) return;
+      isPolling = true;
+      try {
+        const res = await axios.get(`${API_URL}/stores/${currentStore}/whatsapp/status`);
+        if (!isMounted) return;
+        setWhatsappStatus(res.data.status);
+        if (res.data.phone_number) {
+          setConnectedNumber(res.data.phone_number);
+        } else {
+          setConnectedNumber(null);
+        }
+      } catch (err) {
+        console.error("Failed to poll WA status", err);
+      } finally {
+        isPolling = false;
+        if (isMounted) {
+          pollTimer = setTimeout(pollWhatsapp, 5000);
+        }
+      }
+    };
+
+    if (whatsappStatus !== 'initializing' && whatsappStatus !== 'waiting_for_qr') {
+      pollTimer = setTimeout(pollWhatsapp, 5000);
+    }
+
+    return () => {
+      isMounted = false;
+      clearTimeout(pollTimer);
+    };
+  }, [currentStore, whatsappStatus]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-      <Sidebar 
-        currentStore={currentStore} 
+      <Sidebar
+        currentStore={currentStore}
         setCurrentStore={setCurrentStore}
         storeData={storeData}
         whatsappStatus={whatsappStatus}
@@ -61,18 +95,18 @@ function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
-      
+
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-main)' }}>
         {/* Header */}
-        <header style={{ 
-          padding: '2rem 2.5rem 1.5rem', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <header style={{
+          padding: '2rem 2.5rem 1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'flex-start'
         }}>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-              {activeTab === 'conversations' ? 'Conversations' : 
+              {activeTab === 'conversations' ? 'Conversations' :
                activeTab === 'orders' ? 'Orders' : 'Products & Catalog'}
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
