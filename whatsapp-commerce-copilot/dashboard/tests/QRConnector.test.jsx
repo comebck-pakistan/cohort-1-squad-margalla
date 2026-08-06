@@ -25,38 +25,38 @@ describe('QRConnector Polling and Timeout', () => {
     axios.get.mockResolvedValue({ data: { status: 'initializing' } }); // for subsequent calls
 
     const setStatus = vi.fn();
-    
+
     render(<QRConnector storeId="test" status="initializing" setStatus={setStatus} />);
-    
+
     // Initial poll is pending
     expect(axios.get).toHaveBeenCalledTimes(1);
-    
+
     // Advance time by 10 seconds. Since the first request is pending, it should NOT poll again
     await act(async () => {
       vi.advanceTimersByTime(10000);
     });
-    
+
     expect(axios.get).toHaveBeenCalledTimes(1);
-    
+
     // Now resolve the first request
     await act(async () => {
       resolveFirstReq({ data: { status: 'initializing' } });
     });
-    
+
     // Advance 5s, now it should poll again
     await act(async () => {
       vi.advanceTimersByTime(5000);
     });
-    
+
     expect(axios.get).toHaveBeenCalledTimes(2);
   });
 
   it('clears timeout when valid QR is received', async () => {
     axios.get.mockResolvedValue({ data: { status: 'waiting_for_qr', qr_code: 'qr-data' } });
     const setStatus = vi.fn();
-    
+
     render(<QRConnector storeId="test" status="waiting_for_qr" setStatus={setStatus} />);
-    
+
     await act(async () => {
       await Promise.resolve();
     });
@@ -73,9 +73,9 @@ describe('QRConnector Polling and Timeout', () => {
   it('stops polling when status becomes connected', async () => {
     axios.get.mockResolvedValue({ data: { status: 'connected' } });
     const setStatus = vi.fn();
-    
+
     const { rerender } = render(<QRConnector storeId="test" status="initializing" setStatus={setStatus} />);
-    
+
     await act(async () => {
       await Promise.resolve();
     });
@@ -85,7 +85,7 @@ describe('QRConnector Polling and Timeout', () => {
     await act(async () => {
       vi.advanceTimersByTime(5000);
     });
-    
+
     // Should not poll again after being connected
     expect(axios.get).toHaveBeenCalledTimes(1);
   });
@@ -94,40 +94,40 @@ describe('QRConnector Polling and Timeout', () => {
     axios.post.mockResolvedValue({ data: { status: 'initializing', qr_code: null } });
     axios.get.mockResolvedValue({ data: { status: 'initializing' } });
     const setStatus = vi.fn();
-    
+
     render(<QRConnector storeId="test" status="failed" setStatus={setStatus} />);
-    
+
     // Advance to clear anything if present
     await act(async () => {
       vi.advanceTimersByTime(5000);
     });
-    
+
     const retryButton = screen.getByRole('button', { name: /Retry/i });
     fireEvent.click(retryButton);
-    
+
     await act(async () => {
       await Promise.resolve();
     });
-    
+
     expect(axios.post).toHaveBeenCalledTimes(1);
   });
 
   it('unmount clears timers', async () => {
     axios.get.mockResolvedValue({ data: { status: 'initializing' } });
     const setStatus = vi.fn();
-    
+
     const { unmount } = render(<QRConnector storeId="test" status="initializing" setStatus={setStatus} />);
-    
+
     await act(async () => {
       await Promise.resolve();
     });
-    
+
     unmount();
-    
+
     await act(async () => {
       vi.advanceTimersByTime(5000);
     });
-    
+
     // Only the initial fetch should have happened
     expect(axios.get).toHaveBeenCalledTimes(1);
   });
@@ -136,22 +136,22 @@ describe('QRConnector Polling and Timeout', () => {
     // Delay resolution to keep `isRetrying` active
     axios.post.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ data: { status: 'initializing' } }), 1000)));
     const setStatus = vi.fn();
-    
+
     render(<QRConnector storeId="test" status="failed" setStatus={setStatus} />);
-    
+
     const retryButton = screen.getByRole('button', { name: /Retry/i });
-    
+
     // Click multiple times
     fireEvent.click(retryButton);
     fireEvent.click(retryButton);
     fireEvent.click(retryButton);
-    
+
     // Advance timers so promise resolves
     await act(async () => {
       vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
-    
+
     expect(axios.post).toHaveBeenCalledTimes(1);
   });
 
