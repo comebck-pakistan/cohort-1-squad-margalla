@@ -95,6 +95,10 @@ services:
       EVOLUTION_WEBHOOK_URL: http://gateway:3001/webhook/evolution
       EVOLUTION_API_VERSION: "latest"
       MAX_INBOUND_AGE_SECONDS: ${MAX_INBOUND_AGE_SECONDS:-300}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-gemini-2.5-flash}
+      MAX_AUDIO_BYTES: ${MAX_AUDIO_BYTES:-10485760}
+      TRANSCRIPTION_TIMEOUT_MS: ${TRANSCRIPTION_TIMEOUT_MS:-45000}
     depends_on:
       - backend
       - evolution-api

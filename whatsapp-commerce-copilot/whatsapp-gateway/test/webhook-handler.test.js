@@ -4,6 +4,8 @@ const {
   getSkipReason,
   normalizeCustomerNumber,
   mapConnectionState,
+  detectMessageType,
+  extractTextContent,
 } = require('../src/webhook-handler');
 
 test('filters group, broadcast, protocol, history, and stale traffic', () => {
@@ -52,4 +54,61 @@ test('maps Evolution connection states', () => {
   assert.equal(mapConnectionState('open'), 'connected');
   assert.equal(mapConnectionState('connecting'), 'initializing');
   assert.equal(mapConnectionState('close'), 'disconnected');
+});
+
+// --- detectMessageType tests ---
+test('detectMessageType: returns audio for audioMessage', () => {
+  assert.equal(detectMessageType({ audioMessage: {} }), 'audio');
+});
+
+test('detectMessageType: returns image for imageMessage', () => {
+  assert.equal(detectMessageType({ imageMessage: { caption: 'pic' } }), 'image');
+});
+
+test('detectMessageType: returns video for videoMessage', () => {
+  assert.equal(detectMessageType({ videoMessage: {} }), 'video');
+});
+
+test('detectMessageType: returns document for documentMessage', () => {
+  assert.equal(detectMessageType({ documentMessage: {} }), 'document');
+});
+
+test('detectMessageType: returns text for conversation', () => {
+  assert.equal(detectMessageType({ conversation: 'hello' }), 'text');
+});
+
+test('detectMessageType: returns text for extendedTextMessage', () => {
+  assert.equal(detectMessageType({ extendedTextMessage: { text: 'hi' } }), 'text');
+});
+
+test('detectMessageType: returns null for empty/unknown', () => {
+  assert.equal(detectMessageType(null), null);
+  assert.equal(detectMessageType({}), null);
+  assert.equal(detectMessageType({ stickerMessage: {} }), null);
+});
+
+// --- extractTextContent tests ---
+test('extractTextContent: extracts conversation text', () => {
+  assert.equal(extractTextContent({ conversation: 'hello world' }), 'hello world');
+});
+
+test('extractTextContent: extracts extendedTextMessage text', () => {
+  assert.equal(extractTextContent({ extendedTextMessage: { text: 'extended' } }), 'extended');
+});
+
+test('extractTextContent: extracts image caption', () => {
+  assert.equal(extractTextContent({ imageMessage: { caption: 'photo caption' } }), 'photo caption');
+});
+
+test('extractTextContent: extracts video caption', () => {
+  assert.equal(extractTextContent({ videoMessage: { caption: 'video caption' } }), 'video caption');
+});
+
+test('extractTextContent: extracts document caption', () => {
+  assert.equal(extractTextContent({ documentMessage: { caption: 'doc caption' } }), 'doc caption');
+});
+
+test('extractTextContent: returns empty string for audio or null', () => {
+  assert.equal(extractTextContent(null), '');
+  assert.equal(extractTextContent({ audioMessage: {} }), '');
 });

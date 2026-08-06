@@ -122,7 +122,7 @@ class MessageProcessor:
 
         # Step 8: Pure policy query (no product reference)
         policy_intents = {'cod_query', 'delivery_query', 'returns_query', 'exchange_query'}
-        product_intents = {'product_search', 'price_query', 'stock_query'}
+        product_intents = {'product_search', 'price_query', 'stock_query', 'picture_request', 'color_query', 'size_query'}
 
         # Check if ALL detected sub-intents are policy-related
         has_product_sub_intent = any(si in product_intents for si in intent_result.sub_intents)

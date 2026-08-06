@@ -19,6 +19,12 @@ const config = {
   // Ignore history-sync/reconnect traffic. Live notifications normally arrive
   // within seconds; this allows a small delivery/retry window.
   maxInboundAgeSeconds: Number(process.env.MAX_INBOUND_AGE_SECONDS || 300),
+
+  // Voice-message transcription (Gemini — reuses the same API key as backend)
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'gemini-2.5-flash',
+  maxAudioBytes: Number(process.env.MAX_AUDIO_BYTES || 10485760), // 10 MB
+  transcriptionTimeoutMs: Number(process.env.TRANSCRIPTION_TIMEOUT_MS || 45000),
 };
 
 module.exports = config;

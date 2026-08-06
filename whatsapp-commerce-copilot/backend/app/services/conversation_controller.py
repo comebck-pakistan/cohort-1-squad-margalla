@@ -218,8 +218,18 @@ class ConversationController:
 
         # Start an order only from an explicit buying action.
         if conversation.order_stage in {"BROWSING", "ORDER_CREATED"}:
-            conversation.order_stage = "BROWSING"
-            self.orders.advance_stage(conversation, product=product)
+            if intent == "order_request":
+                conversation.order_stage = "BROWSING"
+                self.orders.advance_stage(conversation, product=product)
+            elif intent == "order_confirmation":
+                # Only advance if they explicitly provided size/quantity
+                if entities.quantity or entities.size:
+                    conversation.order_stage = "BROWSING"
+                    self.orders.advance_stage(conversation, product=product)
+                else:
+                    # They just said "Yes, that one" or confirmed a product.
+                    # This is product selection, NOT order confirmation.
+                    return None
 
         # Corrections can move variant selection backwards safely.
         if entities.color or entities.size:
@@ -390,13 +400,22 @@ class ConversationController:
         }
         if ai.selected_variant_id and ai.selected_variant_id not in allowed_variants:
             return response
+            
+        # Get authoritative database image URL, ignore AI hallucinated URLs
+        authoritative_image_url = None
+        if ai.selected_product_id:
+            for p in candidates:
+                if p["id"] == ai.selected_product_id:
+                    authoritative_image_url = p.get("image_url")
+                    break
+
         return ProcessedResponse(
             message=ai.response_message,
             intent=response.intent,
             confidence=ai.confidence,
             matched_product_id=ai.selected_product_id,
             matched_variant_id=ai.selected_variant_id,
-            image_url=ai.image_url,
+            image_url=authoritative_image_url,
             sources=response.sources,
             extracted_entities=response.extracted_entities,
             needs_clarification=ai.clarification_needed,
@@ -462,6 +481,7 @@ class ConversationController:
             confidence=1.0,
             matched_product_id=conversation.current_product_id,
             matched_variant_id=conversation.current_variant_id,
+            image_url=base.image_url,
             sources=base.sources,
             extracted_entities=base.extracted_entities,
             store_id=base.store_id,
