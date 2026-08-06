@@ -22,7 +22,7 @@ const config = {
 
   // Voice-message transcription (Gemini — reuses the same API key as backend)
   geminiApiKey: process.env.GEMINI_API_KEY || '',
-  transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'gemini-2.5-flash',
+  transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'gemini-3.5-flash-lite',
   maxAudioBytes: Number(process.env.MAX_AUDIO_BYTES || 10485760), // 10 MB
   transcriptionTimeoutMs: Number(process.env.TRANSCRIPTION_TIMEOUT_MS || 45000),
 };

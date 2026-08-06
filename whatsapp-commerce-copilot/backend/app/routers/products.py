@@ -41,54 +41,87 @@ async def create_product(
     if not store:
         raise HTTPException(status_code=404, detail="Store not found")
 
+    filepath = None
     image_url = None
     if image:
-        # Save image to local uploads directory
-        file_extension = image.filename.split(".")[-1] if "." in image.filename else "jpg"
-        filename = f"{uuid.uuid4()}.{file_extension}"
-        filepath = os.path.join("uploads", filename)
+        import io
+        from PIL import Image, UnidentifiedImageError, ImageOps
+        import pillow_heif
+        try:
+            pillow_heif.register_heif_opener()
+            pillow_heif.register_avif_opener()
+        except AttributeError:
+            pass
         
-        with open(filepath, "wb") as f:
-            f.write(await image.read())
+        try:
+            content = await image.read()
+            if len(content) > 5 * 1024 * 1024:
+                raise ValueError("Image size exceeds 5MB limit.")
             
-        # The backend URL is accessible via BACKEND_URL env var, or relative path
-        # In this docker setup, the dashboard accesses the backend via gateway or directly via localhost:8000
-        # We will store the relative URL path and the frontend/gateway can resolve it
-        image_url = f"/uploads/{filename}"
+            img = Image.open(io.BytesIO(content))
+            img = ImageOps.exif_transpose(img)
+            
+            # Convert to RGB (JPEG doesn't support alpha channel)
+            if img.mode in ('RGBA', 'P', 'LA') or getattr(img, 'format', '') in ('AVIF', 'HEIF', 'WEBP', 'PNG'):
+                img = img.convert('RGB')
+                
+            # Resize if too large
+            img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+            
+            UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")))
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            
+            filename = f"{uuid.uuid4()}.jpg"
+            filepath = os.path.join(UPLOAD_DIR, filename)
+            img.save(filepath, "JPEG", quality=85, optimize=True)
+            
+            image_url = f"/uploads/{filename}"
+        except UnidentifiedImageError:
+            raise HTTPException(status_code=400, detail="Unsupported image format or corrupted file.")
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Image processing failed: {str(e)}")
 
-    # Create product
-    new_product = Product(
-        store_id=store_id,
-        name=name,
-        category=category,
-        description=description,
-        base_price=price,
-        image_url=image_url
-    )
-    db.add(new_product)
-    
-    # Needs to be flushed to get the product ID
-    await db.flush()
+    try:
+        new_product = Product(
+            store_id=store_id,
+            name=name,
+            category=category,
+            description=description,
+            base_price=price,
+            image_url=image_url
+        )
+        db.add(new_product)
+        await db.flush()
 
-    # Add default variant
-    variant = ProductVariant(
-        product_id=new_product.id,
-        price=price,
-        stock=stock,
-    )
-    db.add(variant)
+        variant = ProductVariant(
+            product_id=new_product.id,
+            price=price,
+            stock=stock,
+        )
+        db.add(variant)
 
-    # Add aliases from labels
-    if labels:
-        label_list = [label.strip() for label in labels.split(",") if label.strip()]
-        for label in label_list:
-            alias = ProductAlias(
-                product_id=new_product.id,
-                alias=label
-            )
-            db.add(alias)
+        if labels:
+            label_list = [label.strip() for label in labels.split(",") if label.strip()]
+            for label in label_list:
+                alias = ProductAlias(
+                    product_id=new_product.id,
+                    alias=label
+                )
+                db.add(alias)
 
-    await db.commit()
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        if filepath and os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail="Database error occurred")
     
     # Reload with relationships
     await db.refresh(new_product, ["variants", "aliases"])

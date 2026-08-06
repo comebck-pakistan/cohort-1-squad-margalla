@@ -62,14 +62,19 @@ function extractStoreId(payload) {
 /**
  * Report session status to the backend.
  */
-async function reportStatus(storeId, status, phoneNumber = null, error = null) {
+async function reportStatus(storeId, status, phoneNumber = null, error = null, qrCode = null) {
   try {
-    await axios.post(`${config.backendUrl}/internal/whatsapp/session-events`, {
+    const payload = {
       store_id: storeId,
       status,
       phone_number: phoneNumber,
       error,
-    }, {
+    };
+    // Include QR code when available (e.g. from QRCODE_UPDATED webhook)
+    if (qrCode !== null) {
+      payload.qr_code = qrCode;
+    }
+    await axios.post(`${config.backendUrl}/internal/whatsapp/session-events`, payload, {
       headers: { 'X-Internal-Token': config.internalToken },
       timeout: 10000,
     });
@@ -95,7 +100,8 @@ async function handleQRCodeUpdated(payload) {
   qrCache.set(storeId, qrBase64);
 
   logger.info({ msg: 'QR code updated', storeId, hasBase64: !!qrBase64 });
-  await reportStatus(storeId, 'waiting_for_qr');
+  // Send QR to backend for durable persistence
+  await reportStatus(storeId, 'waiting_for_qr', null, null, qrBase64);
 }
 
 /**
@@ -112,8 +118,8 @@ async function handleConnectionUpdate(payload) {
   const mappedStatus = mapConnectionState(connectionState);
   logger.info({ msg: 'Connection update', storeId, evolutionState: connectionState, mappedStatus });
 
-  // Clear QR cache when connected
-  if (mappedStatus === 'connected') {
+  // Clear QR cache when connected or disconnected
+  if (mappedStatus === 'connected' || mappedStatus === 'disconnected') {
     qrCache.delete(storeId);
   }
 
@@ -185,9 +191,35 @@ async function forwardAndReply(storeId, customerNumber, messageText, messageType
   if (res.data?.message && res.data.message !== '[AI disabled - human mode active]') {
     const evolutionClient = require('./evolution-client');
 
+    const matchStatus = res.data.matched_product_id 
+      ? (res.data.needs_clarification ? 'ambiguous_match' : 'matched_product')
+      : 'no_match';
+
     if (res.data.image_url) {
-      await evolutionClient.sendMedia(storeId, customerNumber, res.data.image_url, res.data.message);
+      try {
+        logger.info({ 
+          msg: 'Media send attempted', storeId, messageId: whatsappMessageId, 
+          matchedProductId: res.data.matched_product_id, hasImage: true, matchStatus
+        });
+        await evolutionClient.sendMedia(storeId, customerNumber, res.data.image_url, res.data.message);
+        logger.info({ 
+          msg: 'Media send successful', storeId, messageId: whatsappMessageId, 
+          matchedProductId: res.data.matched_product_id, hasImage: true, matchStatus
+        });
+      } catch (err) {
+        logger.error({ 
+          msg: 'Media send failed', storeId, messageId: whatsappMessageId, 
+          matchedProductId: res.data.matched_product_id, hasImage: true, matchStatus,
+          error: err.message
+        });
+        // Fallback to text
+        await evolutionClient.sendText(storeId, customerNumber, res.data.message);
+      }
     } else {
+      logger.info({ 
+        msg: 'Text send attempted', storeId, messageId: whatsappMessageId, 
+        matchedProductId: res.data.matched_product_id, hasImage: false, matchStatus
+      });
       await evolutionClient.sendText(storeId, customerNumber, res.data.message);
     }
   }

@@ -1,14 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { QrCode, RefreshCcw } from 'lucide-react';
+import { QrCode, RefreshCcw, AlertTriangle, WifiOff } from 'lucide-react';
+
+const QR_TIMEOUT_MS = 90_000; // 90 seconds
+const POLL_INTERVAL_MS = 5_000; // 5 seconds
 
 const QRConnector = ({ storeId, status, setStatus }) => {
   const [qrCode, setQrCode] = useState(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const [error, setError] = useState(null);
+  const timeoutRef = useRef(null);
+  const startTimeRef = useRef(null);
+
+  // Reset state when status changes to non-waiting
+  useEffect(() => {
+    if (status !== 'initializing' && status !== 'waiting_for_qr') {
+      setTimedOut(false);
+      if (status !== 'failed') setError(null);
+      clearTimeout(timeoutRef.current);
+    }
+  }, [status]);
 
   useEffect(() => {
     let interval;
-    if (status === 'initializing' || status === 'waiting_for_qr') {
+    if ((status === 'initializing' || status === 'waiting_for_qr') && !timedOut) {
+      startTimeRef.current = Date.now();
+
+      // Set absolute timeout
+      timeoutRef.current = setTimeout(() => {
+        setTimedOut(true);
+      }, QR_TIMEOUT_MS);
+
+      // Poll immediately once, then at interval
       const checkStatus = async () => {
         try {
           const res = await axios.get(`${API_URL}/stores/${storeId}/whatsapp/status`);
@@ -16,21 +40,162 @@ const QRConnector = ({ storeId, status, setStatus }) => {
           if (res.data.qr_code) {
             setQrCode(res.data.qr_code);
           }
+          if (res.data.status === 'failed') {
+            setError('Connection failed. Please retry.');
+          }
         } catch (err) {
           console.error(err);
         }
       };
 
-      interval = setInterval(checkStatus, 3000);
+      checkStatus(); // immediate first poll
+      interval = setInterval(checkStatus, POLL_INTERVAL_MS);
     }
-    
-    return () => clearInterval(interval);
-  }, [status, storeId, setStatus]);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutRef.current);
+    };
+  }, [status, storeId, setStatus, timedOut]);
+
+  const handleRetry = async () => {
+    setTimedOut(false);
+    setError(null);
+    setQrCode(null);
+    try {
+      const res = await axios.post(`${API_URL}/stores/${storeId}/whatsapp/connect`);
+      setStatus(res.data?.status || 'initializing');
+      if (res.data?.qr_code) {
+        setQrCode(res.data.qr_code);
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message;
+      setError(detail);
+      setStatus('failed');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await axios.delete(`${API_URL}/stores/${storeId}/whatsapp`);
+      setStatus('disconnected');
+      setQrCode(null);
+      setTimedOut(false);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const renderContent = () => {
+    // Failed state
+    if (status === 'failed' || timedOut) {
+      return (
+        <>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '1.5rem'
+          }}>
+            {timedOut
+              ? <WifiOff size={28} color="var(--danger)" />
+              : <AlertTriangle size={28} color="var(--danger)" />
+            }
+          </div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+            {timedOut ? 'Connection Timed Out' : 'Connection Failed'}
+          </h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+            {timedOut
+              ? 'No QR code was received within the expected time. The Evolution API may be unavailable.'
+              : (error || 'Something went wrong while connecting. Please try again.')
+            }
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn btn-primary" onClick={handleRetry}
+              style={{ boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)' }}>
+              <RefreshCcw size={14} /> Retry
+            </button>
+            <button className="btn btn-outline" onClick={handleDisconnect}
+              style={{ borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)' }}>
+              Cancel
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    // QR code available
+    if ((status === 'initializing' || status === 'waiting_for_qr') && qrCode) {
+      return (
+        <>
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px' }}>
+            <img src={qrCode} alt="WhatsApp QR Code" style={{ width: '256px', height: '256px' }} />
+          </div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+            Scan to Connect
+          </h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+            Open WhatsApp on your phone, tap Menu or Settings and select Linked Devices. Point your phone to this screen to capture the code.
+          </p>
+          <button className="btn btn-outline" onClick={handleDisconnect}
+            style={{ borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)' }}>
+            Cancel
+          </button>
+        </>
+      );
+    }
+
+    // Waiting for QR (spinner)
+    if (status === 'initializing' || status === 'waiting_for_qr') {
+      return (
+        <>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            backgroundColor: 'rgba(126, 121, 250, 0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '1.5rem'
+          }}>
+            <RefreshCcw size={28} color="var(--accent-primary)" style={{ animation: 'spin 2s linear infinite' }} />
+          </div>
+          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+            Generating QR Code...
+          </h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+            Please wait while we initialize the WhatsApp client for your store.
+          </p>
+        </>
+      );
+    }
+
+    // Default: disconnected — show connect prompt
+    return (
+      <>
+        <div style={{
+          width: '60px', height: '60px', borderRadius: '50%',
+          backgroundColor: 'var(--bg-panel-hover)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: '1.5rem',
+          border: '1px solid var(--border-color)'
+        }}>
+          <QrCode size={24} color="var(--text-secondary)" strokeWidth={1.5} />
+        </div>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+          Connect WhatsApp
+        </h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          Click "Connect" in the sidebar to generate a QR code for your store.
+        </p>
+      </>
+    );
+  };
 
   return (
     <div style={{ flex: 1, padding: '0 2.5rem 2.5rem', display: 'flex', flexDirection: 'column' }}>
-      <div className="grid-background" style={{ 
-        flex: 1, 
+      <div className="grid-background" style={{
+        flex: 1,
         backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-color)',
         borderRadius: '16px',
@@ -41,7 +206,7 @@ const QRConnector = ({ storeId, status, setStatus }) => {
         boxShadow: 'var(--shadow-md)',
         position: 'relative'
       }}>
-        
+
         {/* The Card */}
         <div style={{
           backgroundColor: 'var(--bg-panel)',
@@ -57,66 +222,9 @@ const QRConnector = ({ storeId, status, setStatus }) => {
           position: 'relative',
           zIndex: 10
         }}>
-          
-          {(status === 'initializing' || status === 'waiting_for_qr') && qrCode ? (
-            <>
-              <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px' }}>
-                <img src={qrCode} alt="WhatsApp QR Code" style={{ width: '256px', height: '256px' }} />
-              </div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                Scan to Connect
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                Open WhatsApp on your phone, tap Menu or Settings and select Linked Devices. Point your phone to this screen to capture the code.
-              </p>
-            </>
-          ) : (status === 'initializing' || status === 'waiting_for_qr') && !qrCode ? (
-            <>
-              <div style={{ 
-                width: '64px', 
-                height: '64px', 
-                borderRadius: '50%', 
-                backgroundColor: 'rgba(126, 121, 250, 0.1)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                marginBottom: '1.5rem'
-              }}>
-                <RefreshCcw size={28} color="var(--accent-primary)" className="animate-spin" style={{ animation: 'spin 2s linear infinite' }} />
-              </div>
-              <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                Generating QR Code...
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                Please wait while we initialize the WhatsApp client for your store.
-              </p>
-            </>
-          ) : (
-            <>
-              <div style={{ 
-                width: '60px', 
-                height: '60px', 
-                borderRadius: '50%', 
-                backgroundColor: 'var(--bg-panel-hover)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                marginBottom: '1.5rem',
-                border: '1px solid var(--border-color)'
-              }}>
-                <QrCode size={24} color="var(--text-secondary)" strokeWidth={1.5} />
-              </div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                Connect WhatsApp
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Click "Connect" in the sidebar to generate a QR code for your store.
-              </p>
-            </>
-          )}
+          {renderContent()}
         </div>
-        
+
         {/* Subtle radial gradient behind the card for depth */}
         <div style={{
           position: 'absolute',

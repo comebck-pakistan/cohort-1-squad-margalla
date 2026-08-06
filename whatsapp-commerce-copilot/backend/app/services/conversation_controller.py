@@ -401,13 +401,23 @@ class ConversationController:
         if ai.selected_variant_id and ai.selected_variant_id not in allowed_variants:
             return response
             
-        # Get authoritative database image URL, ignore AI hallucinated URLs
         authoritative_image_url = None
         if ai.selected_product_id:
             for p in candidates:
                 if p["id"] == ai.selected_product_id:
                     authoritative_image_url = p.get("image_url")
                     break
+
+        # Server-side validation against AI future promises
+        lower_msg = ai.response_message.lower()
+        if any(phrase in lower_msg for phrase in [
+            "fetching", "hold on", "sending the picture", "sending pictures", 
+            "will send", "fetch", "wait a moment", "sending it now"
+        ]):
+            # If it promised a picture but we have one, just say here is the picture.
+            # If we don't have one, the deterministic response would have been safer.
+            # We'll just reject the AI response entirely and fall back to the deterministic one.
+            return response
 
         return ProcessedResponse(
             message=ai.response_message,

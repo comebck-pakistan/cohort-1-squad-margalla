@@ -8,9 +8,10 @@ const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, set
 
   const handleConnect = async () => {
     try {
-      await axios.post(`${API_URL}/stores/${currentStore}/whatsapp/connect`);
-      setWhatsappStatus('initializing');
+      const res = await axios.post(`${API_URL}/stores/${currentStore}/whatsapp/connect`);
+      setWhatsappStatus(res.data?.status || 'initializing');
     } catch (err) {
+      setWhatsappStatus('failed');
       console.error(err);
     }
   };
@@ -73,6 +74,7 @@ const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, set
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <span className={`status-dot ${whatsappStatus}`}></span>
             {whatsappStatus === 'connected' && <span style={{fontSize: '0.7rem', color: 'var(--success)', fontWeight: 600}}>Ready</span>}
+            {whatsappStatus === 'failed' && <span style={{fontSize: '0.7rem', color: 'var(--danger)', fontWeight: 600}}>Failed</span>}
           </div>
         </div>
         
@@ -80,9 +82,27 @@ const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, set
           <button className="btn btn-outline" style={{ width: '100%', borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)' }} onClick={handleDisconnect}>
             <Power size={14} /> Disconnect
           </button>
+        ) : whatsappStatus === 'failed' ? (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-primary" style={{ flex: 1, boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)' }} onClick={handleConnect}>
+              <Power size={14} /> Retry
+            </button>
+            <button className="btn btn-outline" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)', padding: '0.5rem' }} onClick={handleDisconnect}>
+              ✕
+            </button>
+          </div>
+        ) : isConnecting ? (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-primary" style={{ flex: 1, opacity: 0.7 }} disabled>
+              <Power size={14} /> Scan QR Code
+            </button>
+            <button className="btn btn-outline" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)', padding: '0.5rem' }} onClick={handleDisconnect}>
+              ✕
+            </button>
+          </div>
         ) : (
-          <button className="btn btn-primary" style={{ width: '100%', boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)' }} onClick={handleConnect} disabled={isConnecting}>
-            <Power size={14} /> {isConnecting ? 'Scan QR Code' : 'Connect'}
+          <button className="btn btn-primary" style={{ width: '100%', boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)' }} onClick={handleConnect}>
+            <Power size={14} /> Connect
           </button>
         )}
       </div>
