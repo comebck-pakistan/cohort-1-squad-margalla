@@ -218,8 +218,18 @@ class ConversationController:
 
         # Start an order only from an explicit buying action.
         if conversation.order_stage in {"BROWSING", "ORDER_CREATED"}:
-            conversation.order_stage = "BROWSING"
-            self.orders.advance_stage(conversation, product=product)
+            if intent == "order_request":
+                conversation.order_stage = "BROWSING"
+                self.orders.advance_stage(conversation, product=product)
+            elif intent == "order_confirmation":
+                # Only advance if they explicitly provided size/quantity
+                if entities.quantity or entities.size:
+                    conversation.order_stage = "BROWSING"
+                    self.orders.advance_stage(conversation, product=product)
+                else:
+                    # They just said "Yes, that one" or confirmed a product.
+                    # This is product selection, NOT order confirmation.
+                    return None
 
         # Corrections can move variant selection backwards safely.
         if entities.color or entities.size:
@@ -390,13 +400,32 @@ class ConversationController:
         }
         if ai.selected_variant_id and ai.selected_variant_id not in allowed_variants:
             return response
+            
+        authoritative_image_url = None
+        if ai.selected_product_id:
+            for p in candidates:
+                if p["id"] == ai.selected_product_id:
+                    authoritative_image_url = p.get("image_url")
+                    break
+
+        # Server-side validation against AI future promises
+        lower_msg = ai.response_message.lower()
+        if any(phrase in lower_msg for phrase in [
+            "fetching", "hold on", "sending the picture", "sending pictures", 
+            "will send", "fetch", "wait a moment", "sending it now"
+        ]):
+            # If it promised a picture but we have one, just say here is the picture.
+            # If we don't have one, the deterministic response would have been safer.
+            # We'll just reject the AI response entirely and fall back to the deterministic one.
+            return response
+
         return ProcessedResponse(
             message=ai.response_message,
             intent=response.intent,
             confidence=ai.confidence,
             matched_product_id=ai.selected_product_id,
             matched_variant_id=ai.selected_variant_id,
-            image_url=ai.image_url,
+            image_url=authoritative_image_url,
             sources=response.sources,
             extracted_entities=response.extracted_entities,
             needs_clarification=ai.clarification_needed,
@@ -462,6 +491,7 @@ class ConversationController:
             confidence=1.0,
             matched_product_id=conversation.current_product_id,
             matched_variant_id=conversation.current_variant_id,
+            image_url=base.image_url,
             sources=base.sources,
             extracted_entities=base.extracted_entities,
             store_id=base.store_id,

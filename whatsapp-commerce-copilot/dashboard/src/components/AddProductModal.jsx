@@ -56,8 +56,8 @@ const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
       onProductAdded();
       onClose();
     } catch (err) {
-      console.error(err);
-      setError("Failed to add product. Please try again.");
+      const errorMsg = err.response?.data?.detail || "Failed to add product. Please try again.";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Product Image</label>
             <input 
               type="file" 
-              accept="image/*" 
+              accept=".jpg,.jpeg,.png,.webp,.avif" 
               onChange={handleImageChange}
               style={{
                 background: 'var(--bg-card)',
@@ -233,13 +233,15 @@ const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
             <button 
               type="button" 
               onClick={onClose}
+              disabled={loading}
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: '8px',
+                border: 'none',
                 background: 'transparent',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
+                color: 'var(--text-secondary)',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
             >
               Cancel
@@ -250,11 +252,11 @@ const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: '8px',
-                background: 'var(--accent-primary)',
                 border: 'none',
-                color: '#fff',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1
+                background: loading ? 'var(--border-color)' : 'var(--accent-primary)',
+                color: loading ? 'var(--text-secondary)' : '#fff',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
             >
               {loading ? 'Adding...' : 'Add Product'}

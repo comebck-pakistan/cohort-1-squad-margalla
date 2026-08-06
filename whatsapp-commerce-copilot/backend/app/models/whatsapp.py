@@ -1,7 +1,7 @@
 """WhatsApp session model."""
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Index
+from sqlalchemy import String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -18,7 +18,7 @@ class WhatsAppSession(Base):
     # Status values: disconnected, initializing, waiting_for_qr, authenticated, connected, reconnecting, failed
     phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     session_data_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    qr_code: Mapped[str | None] = mapped_column(String(2000), nullable=True)  # Base64 encoded QR
+    qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)  # Base64 encoded QR
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())

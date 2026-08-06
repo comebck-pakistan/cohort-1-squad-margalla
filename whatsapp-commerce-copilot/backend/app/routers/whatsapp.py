@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models.store import Store
@@ -16,9 +17,14 @@ from app.schemas.api import (
 )
 from app.config import get_settings
 import httpx
-import asyncio
+import structlog
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/stores/{store_id}", tags=["whatsapp", "conversations", "orders"])
+
+# Stale session threshold: sessions stuck in initializing beyond this are failed.
+STALE_SESSION_SECONDS = 120
 
 
 def _get_gateway_url() -> str:
@@ -44,26 +50,51 @@ async def connect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db)):
         db.add(session)
     else:
         session.status = "initializing"
+        session.qr_code = None  # Clear stale QR
 
     store.whatsapp_status = "initializing"
     await db.commit()
 
-    # Call gateway asynchronously so we don't block
-    async def _call_gateway():
-        settings = get_settings()
+    # Call gateway synchronously with bounded timeout
+    settings = get_settings()
+    try:
         async with httpx.AsyncClient() as client:
-            try:
-                await client.post(
-                    f"{_get_gateway_url()}/sessions/{store_id}/connect",
-                    headers={"X-Internal-Token": settings.INTERNAL_SERVICE_TOKEN},
-                    timeout=30.0
-                )
-            except Exception as e:
-                print(f"Gateway connect error: {e}")
+            resp = await client.post(
+                f"{_get_gateway_url()}/sessions/{store_id}/connect",
+                headers={"X-Internal-Token": settings.INTERNAL_SERVICE_TOKEN},
+                timeout=15.0
+            )
+            resp.raise_for_status()
+            gw_data = resp.json()
 
-    asyncio.create_task(_call_gateway())
+            # Persist QR if returned immediately by gateway
+            qr_code = gw_data.get("qr_code")
+            if qr_code:
+                session.qr_code = qr_code
+                session.status = "waiting_for_qr"
+                store.whatsapp_status = "waiting_for_qr"
+            # else: QR will arrive later via webhook
 
-    return {"status": "initializing", "store_id": store_id}
+            await db.commit()
+            return {
+                "status": session.status,
+                "store_id": store_id,
+                "qr_code": qr_code,
+            }
+
+    except httpx.TimeoutException:
+        logger.error("gateway_connect_timeout", store_id=store_id)
+        session.status = "failed"
+        store.whatsapp_status = "failed"
+        await db.commit()
+        raise HTTPException(status_code=504, detail="Gateway timeout — Evolution API may be unavailable")
+
+    except Exception as e:
+        logger.error("gateway_connect_error", store_id=store_id, error=str(e))
+        session.status = "failed"
+        store.whatsapp_status = "failed"
+        await db.commit()
+        raise HTTPException(status_code=502, detail=f"Gateway error: {str(e)}")
 
 
 @router.get("/whatsapp/status", response_model=WhatsAppStatusResponse)
@@ -75,23 +106,47 @@ async def whatsapp_status(store_id: str, db: AsyncSession = Depends(get_db)):
     session = result.scalar_one_or_none()
     if not session:
         return {"store_id": store_id, "status": "disconnected"}
-    
-    # Try fetching QR code from gateway if we are waiting
-    qr_code = None
-    if session.status in ("initializing", "waiting_for_qr"):
-        async with httpx.AsyncClient() as client:
-            try:
-                res = await client.get(f"{_get_gateway_url()}/sessions/{store_id}/qr", timeout=2.0)
+
+    # Stale session recovery: if stuck in initializing for too long, mark failed
+    if session.status == "initializing" and session.updated_at:
+        age = datetime.utcnow() - session.updated_at
+        if age > timedelta(seconds=STALE_SESSION_SECONDS):
+            logger.warning("stale_session_recovered", store_id=store_id, age_seconds=age.total_seconds())
+            session.status = "failed"
+            # Update store too
+            store_result = await db.execute(select(Store).where(Store.id == store_id))
+            store = store_result.scalar_one_or_none()
+            if store:
+                store.whatsapp_status = "failed"
+            await db.commit()
+
+    # Use DB QR as primary source
+    qr_code = session.qr_code
+
+    # Fallback: try gateway cache only if DB has no QR and we're still waiting
+    if not qr_code and session.status in ("initializing", "waiting_for_qr"):
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(
+                    f"{_get_gateway_url()}/sessions/{store_id}/qr",
+                    timeout=2.0,
+                )
                 if res.status_code == 200:
-                    qr_code = res.json().get("qr_code")
-            except Exception:
-                pass
+                    gw_qr = res.json().get("qr_code")
+                    if gw_qr:
+                        qr_code = gw_qr
+                        # Persist gateway QR to DB for durability
+                        session.qr_code = gw_qr
+                        session.status = "waiting_for_qr"
+                        await db.commit()
+        except Exception:
+            pass
 
     return {
         "store_id": store_id,
         "status": session.status,
         "phone_number": session.phone_number,
-        "qr_code": qr_code
+        "qr_code": qr_code,
     }
 
 
@@ -120,6 +175,7 @@ async def disconnect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db))
     session = result.scalar_one_or_none()
     if session:
         session.status = "disconnected"
+        session.qr_code = None  # Clear stale QR
     store.whatsapp_status = "disconnected"
     await db.commit()
 

@@ -22,6 +22,9 @@ const processedMessageIds = new Set();
 const MAX_PROCESSED_IDS = 10000;
 const gatewayStartedAtSeconds = Math.floor(Date.now() / 1000);
 
+const VOICE_FALLBACK_MESSAGE =
+  "Sorry, I couldn't understand that voice message. Please send it again or type your request.";
+
 /**
  * Map Evolution API connection states to the backend's session status enum.
  * Backend enum: disconnected, initializing, waiting_for_qr, authenticated, connected, reconnecting, failed
@@ -59,14 +62,19 @@ function extractStoreId(payload) {
 /**
  * Report session status to the backend.
  */
-async function reportStatus(storeId, status, phoneNumber = null, error = null) {
+async function reportStatus(storeId, status, phoneNumber = null, error = null, qrCode = null) {
   try {
-    await axios.post(`${config.backendUrl}/internal/whatsapp/session-events`, {
+    const payload = {
       store_id: storeId,
       status,
       phone_number: phoneNumber,
       error,
-    }, {
+    };
+    // Include QR code when available (e.g. from QRCODE_UPDATED webhook)
+    if (qrCode !== null) {
+      payload.qr_code = qrCode;
+    }
+    await axios.post(`${config.backendUrl}/internal/whatsapp/session-events`, payload, {
       headers: { 'X-Internal-Token': config.internalToken },
       timeout: 10000,
     });
@@ -92,7 +100,8 @@ async function handleQRCodeUpdated(payload) {
   qrCache.set(storeId, qrBase64);
 
   logger.info({ msg: 'QR code updated', storeId, hasBase64: !!qrBase64 });
-  await reportStatus(storeId, 'waiting_for_qr');
+  // Send QR to backend for durable persistence
+  await reportStatus(storeId, 'waiting_for_qr', null, null, qrBase64);
 }
 
 /**
@@ -109,8 +118,8 @@ async function handleConnectionUpdate(payload) {
   const mappedStatus = mapConnectionState(connectionState);
   logger.info({ msg: 'Connection update', storeId, evolutionState: connectionState, mappedStatus });
 
-  // Clear QR cache when connected
-  if (mappedStatus === 'connected') {
+  // Clear QR cache when connected or disconnected
+  if (mappedStatus === 'connected' || mappedStatus === 'disconnected') {
     qrCache.delete(storeId);
   }
 
@@ -129,6 +138,161 @@ async function handleMessagesUpsert(payload) {
   const messages = Array.isArray(rawData) ? rawData : [rawData];
   for (const data of messages) {
     await handleSingleMessage(storeId, data);
+  }
+}
+
+/**
+ * Detect the type of WhatsApp message.
+ * @param {object} message — data.message from webhook payload
+ * @returns {'text'|'image'|'video'|'document'|'audio'|null}
+ */
+function detectMessageType(message) {
+  if (!message) return null;
+  if (message.audioMessage) return 'audio';
+  if (message.imageMessage) return 'image';
+  if (message.videoMessage) return 'video';
+  if (message.documentMessage) return 'document';
+  if (message.conversation || message.extendedTextMessage) return 'text';
+  return null;
+}
+
+/**
+ * Extract text content from a message (conversation text or media caption).
+ * @param {object} message — data.message from webhook payload
+ * @returns {string}
+ */
+function extractTextContent(message) {
+  if (!message) return '';
+  return message.conversation
+    || message.extendedTextMessage?.text
+    || message.imageMessage?.caption
+    || message.videoMessage?.caption
+    || message.documentMessage?.caption
+    || '';
+}
+
+/**
+ * Forward message to backend and send reply back to customer.
+ * Shared by text and audio paths to avoid code duplication.
+ */
+async function forwardAndReply(storeId, customerNumber, messageText, messageType, whatsappMessageId) {
+  const res = await axios.post(`${config.backendUrl}/internal/whatsapp/messages`, {
+    store_id: storeId,
+    customer_number: customerNumber,
+    message: messageText,
+    message_type: messageType,
+    whatsapp_message_id: whatsappMessageId || null,
+  }, {
+    headers: { 'X-Internal-Token': config.internalToken },
+    timeout: 30000,
+  });
+
+  // If backend returns a reply and it's not a human-mode-active marker, send it back
+  if (res.data?.message && res.data.message !== '[AI disabled - human mode active]') {
+    const evolutionClient = require('./evolution-client');
+
+    const matchStatus = res.data.matched_product_id 
+      ? (res.data.needs_clarification ? 'ambiguous_match' : 'matched_product')
+      : 'no_match';
+
+    if (res.data.image_url) {
+      try {
+        logger.info({ 
+          msg: 'Media send attempted', storeId, messageId: whatsappMessageId, 
+          matchedProductId: res.data.matched_product_id, hasImage: true, matchStatus
+        });
+        await evolutionClient.sendMedia(storeId, customerNumber, res.data.image_url, res.data.message);
+        logger.info({ 
+          msg: 'Media send successful', storeId, messageId: whatsappMessageId, 
+          matchedProductId: res.data.matched_product_id, hasImage: true, matchStatus
+        });
+      } catch (err) {
+        logger.error({ 
+          msg: 'Media send failed', storeId, messageId: whatsappMessageId, 
+          matchedProductId: res.data.matched_product_id, hasImage: true, matchStatus,
+          error: err.message
+        });
+        // Fallback to text
+        await evolutionClient.sendText(storeId, customerNumber, res.data.message);
+      }
+    } else {
+      logger.info({ 
+        msg: 'Text send attempted', storeId, messageId: whatsappMessageId, 
+        matchedProductId: res.data.matched_product_id, hasImage: false, matchStatus
+      });
+      await evolutionClient.sendText(storeId, customerNumber, res.data.message);
+    }
+  }
+
+  return res;
+}
+
+/**
+ * Process an audio/voice message: download → transcribe → forward transcript.
+ */
+async function processAudioMessage(storeId, data, customerNumber, whatsappMessageId) {
+  const evolutionClient = require('./evolution-client');
+  const transcriptionClient = require('./transcription-client');
+
+  try {
+    // Step 1: Download media
+    logger.info({ msg: 'Processing voice message', storeId, messageId: whatsappMessageId });
+    let media;
+    try {
+      media = await evolutionClient.downloadMediaMessage(storeId, data);
+    } catch (downloadErr) {
+      logger.error({ msg: 'Audio download failed', storeId, messageId: whatsappMessageId, error: downloadErr.message });
+      await evolutionClient.sendText(storeId, customerNumber, VOICE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 2: Validate MIME type
+    if (!media.mimeType || !media.mimeType.startsWith('audio/')) {
+      logger.warn({ msg: 'Unsupported audio MIME type', storeId, messageId: whatsappMessageId, mimeType: media.mimeType });
+      await evolutionClient.sendText(storeId, customerNumber, VOICE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 3: Validate size
+    if (media.buffer.length > config.maxAudioBytes) {
+      logger.warn({ msg: 'Audio too large', storeId, messageId: whatsappMessageId, bytes: media.buffer.length, limit: config.maxAudioBytes });
+      await evolutionClient.sendText(storeId, customerNumber, VOICE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 4: Transcribe
+    let transcript;
+    try {
+      transcript = await transcriptionClient.transcribeAudio({
+        buffer: media.buffer,
+        mimeType: media.mimeType,
+        fileName: media.fileName,
+      });
+    } catch (transcribeErr) {
+      logger.error({ msg: 'Transcription failed', storeId, messageId: whatsappMessageId, error: transcribeErr.message });
+      await evolutionClient.sendText(storeId, customerNumber, VOICE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 5: Validate transcript not empty
+    if (!transcript) {
+      logger.warn({ msg: 'Empty transcript', storeId, messageId: whatsappMessageId });
+      await evolutionClient.sendText(storeId, customerNumber, VOICE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 6: Forward to backend as audio message type
+    logger.info({ msg: 'Forwarding transcript to backend', storeId, messageId: whatsappMessageId, transcriptLength: transcript.length });
+    await forwardAndReply(storeId, customerNumber, transcript, 'audio', whatsappMessageId);
+
+  } catch (err) {
+    // Catch-all: never leak internal errors to customer
+    logger.error({ msg: 'Voice message processing error', storeId, messageId: whatsappMessageId, error: err.message });
+    try {
+      await evolutionClient.sendText(storeId, customerNumber, VOICE_FALLBACK_MESSAGE);
+    } catch (sendErr) {
+      logger.error({ msg: 'Failed to send voice fallback', storeId, error: sendErr.message });
+    }
   }
 }
 
@@ -158,49 +322,33 @@ async function handleSingleMessage(storeId, data) {
     return;
   }
 
-  // Extract message text
-  const messageText = data.message?.conversation
-    || data.message?.extendedTextMessage?.text
-    || data.message?.imageMessage?.caption
-    || data.message?.videoMessage?.caption
-    || data.message?.documentMessage?.caption
-    || '';
+  const msgType = detectMessageType(data.message);
+
+  // Handle audio/voice messages via transcription pipeline
+  if (msgType === 'audio') {
+    await processAudioMessage(storeId, data, customerNumber, whatsappMessageId);
+    markProcessed(whatsappMessageId);
+    return;
+  }
+
+  // Extract message text (conversation or caption)
+  const messageText = extractTextContent(data.message);
 
   if (!messageText) {
     logger.info({ msg: 'Non-text message received, skipping', storeId, type: Object.keys(data.message || {}).join(',') });
     return;
   }
 
-  // Determine message type
-  const messageType = data.message?.imageMessage ? 'image'
-    : data.message?.videoMessage ? 'video'
-    : data.message?.documentMessage ? 'document'
+  // Determine message type for backend
+  const messageType = msgType === 'image' ? 'image'
+    : msgType === 'video' ? 'video'
+    : msgType === 'document' ? 'document'
     : 'text';
 
   logger.info({ msg: 'Message received', storeId, from: customerNumber, messageId: whatsappMessageId });
 
   try {
-    const res = await axios.post(`${config.backendUrl}/internal/whatsapp/messages`, {
-      store_id: storeId,
-      customer_number: customerNumber,
-      message: messageText,
-      message_type: messageType,
-      whatsapp_message_id: whatsappMessageId || null,
-    }, {
-      headers: { 'X-Internal-Token': config.internalToken },
-      timeout: 30000,
-    });
-
-    // If backend returns a reply and it's not a human-mode-active marker, send it back
-    if (res.data?.message && res.data.message !== '[AI disabled - human mode active]') {
-      const evolutionClient = require('./evolution-client');
-      
-      if (res.data.image_url) {
-        await evolutionClient.sendMedia(storeId, customerNumber, res.data.image_url, res.data.message);
-      } else {
-        await evolutionClient.sendText(storeId, customerNumber, res.data.message);
-      }
-    }
+    await forwardAndReply(storeId, customerNumber, messageText, messageType, whatsappMessageId);
     markProcessed(whatsappMessageId);
   } catch (err) {
     logger.error({ msg: 'Failed to forward message to backend', storeId, error: err.message });
@@ -328,5 +476,10 @@ module.exports = {
   getSkipReason,
   normalizeCustomerNumber,
   handleMessagesUpsert,
+  detectMessageType,
+  extractTextContent,
+  processAudioMessage,
+  forwardAndReply,
+  VOICE_FALLBACK_MESSAGE,
   _processedMessageIds: processedMessageIds,
 };

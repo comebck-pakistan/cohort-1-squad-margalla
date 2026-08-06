@@ -102,47 +102,52 @@ class ResponseBuilder:
         parts.append(f"*{product.name}*")
 
         # Variant info
+        available_sizes = []
+        available_colors = []
+        base_price = product.base_price or 0.0
+        stock_status = "Available" if any(v.stock > 0 for v in product.variants) else "Out of stock"
+        
         if match.matched_variants:
             for variant in match.matched_variants:
                 sources.append(f"inventory:variant:{variant.id}")
-                variant_desc = []
-                if variant.color:
-                    variant_desc.append(variant.color.title())
-                if variant.size:
-                    variant_desc.append(f"{t('label_size', lang)} {variant.size}")
-
-                desc = " | ".join(variant_desc) if variant_desc else "Default"
-
-                # Stock status
-                if variant.stock > 0:
-                    stock_msg = t("stock_available", lang, stock=variant.stock)
-                else:
-                    stock_msg = t("stock_out", lang)
-
-                parts.append(f"  {desc}: Rs. {variant.price:,.0f} — {stock_msg}")
-
+                if variant.size and variant.size not in available_sizes:
+                    available_sizes.append(variant.size)
+                if variant.color and variant.color not in available_colors:
+                    available_colors.append(variant.color)
+            
+            # Use price from first matched variant if base_price is not set or we want to be specific
+            if match.matched_variants[0].price:
+                base_price = match.matched_variants[0].price
+                
             matched_variant = match.matched_variants[0] if len(match.matched_variants) == 1 else None
+            stock_status = "Available" if any(v.stock > 0 for v in match.matched_variants) else "Out of stock"
         else:
-            # No variants matched the filter — show all
-            if product.variants:
-                parts.append(t("product_variants_label", lang))
-                for variant in product.variants:
-                    if not variant.is_active:
-                        continue
-                    sources.append(f"inventory:variant:{variant.id}")
-                    v_parts = []
-                    if variant.color:
-                        v_parts.append(variant.color.title())
-                    if variant.size:
-                        v_parts.append(f"{t('label_size', lang)} {variant.size}")
-                    desc = " | ".join(v_parts) if v_parts else "Default"
-                    stock_str = (
-                        f"{t('label_size', lang)}: {variant.stock}"
-                        if variant.stock > 0
-                        else t("out_of_stock_label", lang)
-                    )
-                    parts.append(f"  {desc}: Rs. {variant.price:,.0f} — {stock_str}")
+            for variant in product.variants:
+                if not variant.is_active:
+                    continue
+                sources.append(f"inventory:variant:{variant.id}")
+                if variant.size and variant.size not in available_sizes:
+                    available_sizes.append(variant.size)
+                if variant.color and variant.color not in available_colors:
+                    available_colors.append(variant.color)
             matched_variant = None
+            
+        parts.append(f"Price: Rs. {base_price:,.0f}")
+        
+        if available_sizes:
+            parts.append(f"Available sizes: {', '.join(available_sizes)}")
+        if available_colors:
+            parts.append(f"Available colors: {', '.join(available_colors)}")
+            
+        parts.append(f"Stock: {stock_status}")
+        
+        # Next question
+        if not matched_variant and available_sizes:
+            next_q = t("ask_size", lang) if t("ask_size", lang) != "ask_size" else "Would you like to select a size?"
+            parts.append(next_q)
+        elif not matched_variant and available_colors:
+            next_q = t("ask_color", lang) if t("ask_color", lang) != "ask_color" else "Which color would you prefer?"
+            parts.append(next_q)
 
         # Policy info
         if policy_results:

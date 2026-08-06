@@ -142,12 +142,26 @@ async def session_event(
     if data.phone_number:
         session.phone_number = data.phone_number
 
+    # Persist QR code when provided by gateway webhook
+    if data.qr_code:
+        session.qr_code = data.qr_code
+
+    # Clear QR on terminal states (connected, disconnected, failed)
+    if data.status in ("connected", "disconnected", "failed"):
+        session.qr_code = None
+
+    # Record connection timestamp
+    if data.status == "connected":
+        from datetime import datetime
+        session.last_connected_at = datetime.utcnow()
+
     # Also update store's whatsapp_status
     store_result = await db.execute(select(Store).where(Store.id == data.store_id))
     store = store_result.scalar_one_or_none()
     if store:
         store.whatsapp_status = data.status
 
+    await db.commit()
     return {"status": "ok"}
 
 

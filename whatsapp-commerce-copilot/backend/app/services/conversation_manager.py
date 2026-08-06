@@ -137,8 +137,25 @@ class ConversationManager:
                 resolved["from_context"] = True
                 return resolved
 
-        # Check if message references current product context
-        has_product_ref = entities.get("product_query") or entities.get("sku") or entities.get("category")
+        # Check if message is a pronoun reference to the selected product
+        context_pronouns = {
+            "this", "that", "this one", "that one", "the selected one", 
+            "same one", "it", "its picture", "its photo", "send again", 
+            "picture again", "the picture again", "send the picture again"
+        }
+        
+        has_product_ref = bool(entities.get("product_query") or entities.get("sku") or entities.get("category"))
+        is_pronoun_ref = False
+        
+        if entities.get("product_query") and entities.get("product_query").lower().strip() in context_pronouns:
+            is_pronoun_ref = True
+            has_product_ref = False # Treat as NO new product reference
+            
+        # Also check direct message for explicit pronouns if extractor missed it
+        clean_msg = message_lower.replace("yes,", "").replace("yes", "").replace("haan,", "").replace("haan", "").strip()
+        if not is_pronoun_ref and clean_msg in context_pronouns:
+            is_pronoun_ref = True
+            has_product_ref = False
 
         if not has_product_ref and conversation.current_product_id:
             # No new product reference — use context product
@@ -164,36 +181,36 @@ class ConversationManager:
     ) -> str | None:
         """Resolve a numbered choice from clarification candidates.
 
-        Handles: "1", "first", "second", "2", "pehla", "doosra", "teesra"
+        Handles: "1", "first", "second", "2", "pehla", "doosra", "teesra", "number 2", "second one"
         """
+        import re
+        
         number_words = {
             "1": 0, "first": 0, "pehla": 0, "pehli": 0, "pahla": 0,
-            "2": 0, "second": 0, "doosra": 0, "doosri": 0, "dusra": 0,
-            "3": 0, "third": 0, "teesra": 0, "teesri": 0, "tisra": 0,
-            "4": 0, "fourth": 0, "chautha": 0,
-            "5": 0, "fifth": 0, "panchwa": 0,
+            "2": 1, "second": 1, "doosra": 1, "doosri": 1, "dusra": 1,
+            "3": 2, "third": 2, "teesra": 2, "teesri": 2, "tisra": 2,
+            "4": 3, "fourth": 3, "chautha": 3,
+            "5": 4, "fifth": 4, "panchwa": 4,
         }
+        
+        # Check for "number X" or "X one"
+        match = re.search(r'\b(?:number|num|no\.?)\s*(\d+)\b', message)
+        if match:
+            idx = int(match.group(1)) - 1
+            if 0 <= idx < len(candidates):
+                return candidates[idx]
+                
+        match = re.search(r'\b(\d+)\s*(?:one|wala)\b', message)
+        if match:
+            idx = int(match.group(1)) - 1
+            if 0 <= idx < len(candidates):
+                return candidates[idx]
 
-        # Simple number mapping
-        for word, _ in number_words.items():
-            if word in message.split() or message.strip() == word:
-                try:
-                    idx = int(word) - 1 if word.isdigit() else None
-                except ValueError:
-                    idx = None
-
-                if idx is None:
-                    # Map word to index
-                    ordinal_map = {
-                        "first": 0, "pehla": 0, "pehli": 0, "pahla": 0,
-                        "second": 1, "doosra": 1, "doosri": 1, "dusra": 1,
-                        "third": 2, "teesra": 2, "teesri": 2, "tisra": 2,
-                        "fourth": 3, "chautha": 3,
-                        "fifth": 4, "panchwa": 4,
-                    }
-                    idx = ordinal_map.get(word)
-
-                if idx is not None and 0 <= idx < len(candidates):
+        # Simple word matching ("second", "second one")
+        tokens = message.split()
+        for word, idx in number_words.items():
+            if word in tokens or message.strip() == word or message.replace(" one", "").strip() == word or message.replace(" wala", "").strip() == word:
+                if 0 <= idx < len(candidates):
                     return candidates[idx]
 
         return None

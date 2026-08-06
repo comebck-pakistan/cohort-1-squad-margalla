@@ -110,6 +110,7 @@ class InternalSessionEvent(BaseModel):
     status: str
     phone_number: Optional[str] = None
     error: Optional[str] = None
+    qr_code: Optional[str] = None
 
 
 # --- Conversation schemas ---

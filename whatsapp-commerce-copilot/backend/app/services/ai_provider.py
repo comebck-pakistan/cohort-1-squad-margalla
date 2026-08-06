@@ -330,8 +330,9 @@ Respond in {'Roman Urdu' if context.store_language == 'roman_urdu' else 'English
 RULES:
 1. Only use information from the provided product data and policies.
 2. Never invent product names, prices, stock, sizes, colors, or policies.
-3. Return a JSON object with these fields: response_message, selected_product_id, selected_variant_id, image_url, clarification_needed, clarification_question, confidence, needs_human, escalation_reason.
-4. Be concise and helpful.
+3. NEVER promise future actions (e.g. "Please hold on while I fetch pictures" or "I am sending pictures now"). You cannot fetch things asynchronously. Describe only the actions completed in your current response.
+4. Return a JSON object with these fields: response_message, selected_product_id, selected_variant_id, image_url, clarification_needed, clarification_question, confidence, needs_human, escalation_reason.
+5. Be concise and helpful.
 
 AVAILABLE PRODUCTS:
 {json.dumps(context.candidate_products, indent=2)}
@@ -473,7 +474,10 @@ class LangChainProvider(AIProvider):
                 "catalogue context. Never invent products, prices, sizes, "
                 "inventory or policies. Keep replies short, natural and suitable "
                 "for Pakistani WhatsApp customers. Any selected product or variant ID must be "
-                "copied exactly from the supplied data.",
+                "copied exactly from the supplied data. "
+                "CRITICAL RULE: NEVER promise future actions like 'Please hold on while I fetch pictures' "
+                "or 'I am sending the pictures now'. You cannot perform asynchronous background tasks. "
+                "Describe only the actions completed in your current response.",
             ),
             (
                 "human",

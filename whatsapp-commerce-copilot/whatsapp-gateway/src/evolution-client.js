@@ -192,12 +192,65 @@ async function fetchInstance(storeId) {
   }
 }
 
+/**
+ * Download media from a received message as a Buffer.
+ * Uses the Evolution API getBase64FromMediaMessage endpoint.
+ * @param {string} storeId — instance name
+ * @param {object} messageData — the full message data object from the webhook
+ * @returns {Promise<{buffer: Buffer, mimeType: string, fileName: string}>}
+ */
+async function downloadMediaMessage(storeId, messageData) {
+  const messageId = messageData?.key?.id;
+  if (!messageId) {
+    throw new Error('Message data missing key.id for media download');
+  }
+
+  logger.info({ msg: 'Downloading media message', storeId, messageId });
+
+  const response = await api.post(`/chat/getBase64FromMediaMessage/${storeId}`, {
+    message: {
+      key: {
+        id: messageId,
+      },
+    },
+  }, {
+    timeout: 30000,
+  });
+
+  const data = response.data;
+  if (!data || !data.base64) {
+    throw new Error('Evolution API returned empty or malformed media response');
+  }
+
+  let base64String = data.base64;
+  let mimeType = data.mimetype || data.mimeType || 'audio/ogg';
+
+  // Strip data-URL prefix if present (e.g., "data:audio/ogg;base64,...")
+  const dataUrlMatch = base64String.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUrlMatch) {
+    mimeType = dataUrlMatch[1];
+    base64String = dataUrlMatch[2];
+  }
+
+  const buffer = Buffer.from(base64String, 'base64');
+
+  // Derive a safe filename from the message ID
+  const ext = mimeType.split('/')[1] || 'ogg';
+  const fileName = `voice_${messageId}.${ext}`;
+
+  // Never log buffer/base64 content
+  logger.info({ msg: 'Media downloaded', storeId, messageId, mimeType, bytes: buffer.length });
+
+  return { buffer, mimeType, fileName };
+}
+
 module.exports = {
   createInstance,
   connectInstance,
   getConnectionState,
   sendText,
   sendMedia,
+  downloadMediaMessage,
   deleteInstance,
   isHealthy,
   fetchInstance,
