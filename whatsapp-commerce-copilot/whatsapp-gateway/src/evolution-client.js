@@ -186,7 +186,7 @@ async function fetchInstance(storeId) {
       params: { instanceName: storeId },
     });
     const instances = Array.isArray(response.data) ? response.data : [];
-    return instances.find(i => i.instance?.instanceName === storeId) || null;
+    return instances.find(i => i.name === storeId || i.instance?.instanceName === storeId) || null;
   } catch {
     return null;
   }

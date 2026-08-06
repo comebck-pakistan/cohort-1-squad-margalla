@@ -11,31 +11,51 @@ const QRConnector = ({ storeId, status, setStatus }) => {
   const [timedOut, setTimedOut] = useState(false);
   const [error, setError] = useState(null);
   const timeoutRef = useRef(null);
-  const startTimeRef = useRef(null);
+  const currentStatusRef = useRef(status);
 
-  // Reset state when status changes to non-waiting
+  // Sync ref with prop
+  useEffect(() => {
+    currentStatusRef.current = status;
+  }, [status]);
+
+  // Reset state when status changes to non-waiting or QR is received
   useEffect(() => {
     if (status !== 'initializing' && status !== 'waiting_for_qr') {
       setTimedOut(false);
       if (status !== 'failed') setError(null);
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    } else if (qrCode) {
+      // Clear timeout if a valid QR is received
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      setTimedOut(false);
     }
-  }, [status]);
+  }, [status, qrCode]);
 
   useEffect(() => {
-    let interval;
-    if ((status === 'initializing' || status === 'waiting_for_qr') && !timedOut) {
-      startTimeRef.current = Date.now();
+    let isMounted = true;
+    let pollTimer;
+    let isPolling = false;
+    const isConnecting = status === 'initializing' || status === 'waiting_for_qr';
 
-      // Set absolute timeout
-      timeoutRef.current = setTimeout(() => {
-        setTimedOut(true);
-      }, QR_TIMEOUT_MS);
+    if (isConnecting && !timedOut) {
+      // Set absolute timeout only once per connection attempt (unless we already have a QR)
+      if (!timeoutRef.current && !qrCode) {
+        timeoutRef.current = setTimeout(() => {
+          setTimedOut(true);
+        }, QR_TIMEOUT_MS);
+      }
 
-      // Poll immediately once, then at interval
+      // Sequential polling
       const checkStatus = async () => {
+        if (!isMounted || timedOut || isPolling) return;
+        isPolling = true;
+
         try {
           const res = await axios.get(`${API_URL}/stores/${storeId}/whatsapp/status`);
+          if (!isMounted) return;
+
           setStatus(res.data.status);
           if (res.data.qr_code) {
             setQrCode(res.data.qr_code);
@@ -45,23 +65,43 @@ const QRConnector = ({ storeId, status, setStatus }) => {
           }
         } catch (err) {
           console.error(err);
+        } finally {
+          isPolling = false;
+          const currentStatus = currentStatusRef.current;
+          if (isMounted && (currentStatus === 'initializing' || currentStatus === 'waiting_for_qr')) {
+            pollTimer = setTimeout(checkStatus, POLL_INTERVAL_MS);
+          }
         }
       };
 
       checkStatus(); // immediate first poll
-      interval = setInterval(checkStatus, POLL_INTERVAL_MS);
     }
 
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      clearTimeout(pollTimer);
+    };
+  }, [status, storeId, setStatus, timedOut, qrCode]);
+
+  useEffect(() => {
+    return () => {
       clearTimeout(timeoutRef.current);
     };
-  }, [status, storeId, setStatus, timedOut]);
+  }, []);
+
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = async () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
     setTimedOut(false);
     setError(null);
     setQrCode(null);
+
+    // Clear old timeout to force a fresh one
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+
     try {
       const res = await axios.post(`${API_URL}/stores/${storeId}/whatsapp/connect`);
       setStatus(res.data?.status || 'initializing');
@@ -72,6 +112,8 @@ const QRConnector = ({ storeId, status, setStatus }) => {
       const detail = err.response?.data?.detail || err.message;
       setError(detail);
       setStatus('failed');
+    } finally {
+      setIsRetrying(false);
     }
   };
 

@@ -29,10 +29,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Ensure uploads directory exists
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")))
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# Ensure uploads directory exists — uses the same helper as the product routes
+from app.routers.products import get_upload_dir
+_upload_dir = get_upload_dir()
+_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_upload_dir)), name="uploads")
 
 # CORS
 settings = get_settings()

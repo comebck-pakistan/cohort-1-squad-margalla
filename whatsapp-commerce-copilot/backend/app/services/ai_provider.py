@@ -184,12 +184,12 @@ class MockAIProvider(AIProvider):
         from app.services.entity_extractor import extract_entities
         from app.services.text_normalizer import normalize_text
         from app.services.language_detector import detect_language
-        
+
         normalized = normalize_text(message)
         intent = detect_intent(normalized)
         entities = extract_entities(normalized, store_language)
         lang_det = detect_language(message)
-        
+
         return AIIntentSchema(
             intent=intent.intent,
             product_query=entities.product_query,
@@ -272,14 +272,18 @@ class OpenRouterProvider(AIProvider):
         if not self.api_key:
             return None
 
+        lang_name = "Urdu" if store_language in ("ur", "roman_urdu") else "English"
         system_prompt = f"""You are an intent classifier for an e-commerce store.
-Classify the user's message into exactly one of these intents:
-greeting, product_search, order_status, order_cancel, complaint, delivery_query, price_query, human_agent_request, unknown.
+Language: {lang_name}
+Analyze the customer's message and extract their intent and product query.
 
-If the user is asking about a product (even indirectly), the intent is 'product_search'.
-Extract the EXACT product name they are looking for into 'product_query'. Exclude conversational words.
-Extract product attributes like category, style, color, size into 'entities'.
-If they reference a previously shown product (e.g. 'the first one', 'the black one'), put it in 'reference'.
+Rules:
+1. ONLY return valid JSON. Do not include markdown code blocks (e.g. ```json).
+2. The product_query MUST NOT contain conversational words like "I want", "show me", "price of".
+3. Extract color, size, and category into the entities object if present.
+4. Extract requested fields into the requested_fields list (e.g. ["price", "images"]).
+5. If the user refers to a previously shown product (e.g., "the first one", "it", "the black one"), set the 'reference' field.
+6. NEVER promise future actions like "fetching pictures", "sending shortly", or "main bhej rahi hoon".
 
 Also detect the customer's language:
 - input_language: 'english' | 'roman_urdu' | 'urdu_script' | 'mixed' | 'unknown'
@@ -324,15 +328,16 @@ input_language, response_language, language_confidence."""
             return None
 
     def _build_system_prompt(self, context: AIRequestContext) -> str:
-        return f"""You are a sales assistant for {context.store_name}. 
-Respond in {'Roman Urdu' if context.store_language == 'roman_urdu' else 'English'}.
-
-RULES:
-1. Only use information from the provided product data and policies.
-2. Never invent product names, prices, stock, sizes, colors, or policies.
-3. NEVER promise future actions (e.g. "Please hold on while I fetch pictures" or "I am sending pictures now"). You cannot fetch things asynchronously. Describe only the actions completed in your current response.
-4. Return a JSON object with these fields: response_message, selected_product_id, selected_variant_id, image_url, clarification_needed, clarification_question, confidence, needs_human, escalation_reason.
-5. Be concise and helpful.
+        store_name = context.store_name
+        lang_name = "Roman Urdu" if context.store_language == 'roman_urdu' else "English"
+        return f"""You are {store_name}'s AI assistant on WhatsApp.
+Respond in {lang_name}.
+Never invent products, sizes, prices, or policies.
+CRITICAL RULE: NEVER promise to fetch, send, or share pictures/images in the future.
+If a customer asks for a picture:
+- DO NOT SAY "I will send it", "hold on", "fetching", "bhej rahi hoon", "tasveer bhejta hoon", or similar.
+- If there is no image in the candidate products, politely state that no picture is available right now.
+- Do not invent image URLs.
 
 AVAILABLE PRODUCTS:
 {json.dumps(context.candidate_products, indent=2)}
@@ -475,9 +480,11 @@ class LangChainProvider(AIProvider):
                 "inventory or policies. Keep replies short, natural and suitable "
                 "for Pakistani WhatsApp customers. Any selected product or variant ID must be "
                 "copied exactly from the supplied data. "
-                "CRITICAL RULE: NEVER promise future actions like 'Please hold on while I fetch pictures' "
-                "or 'I am sending the pictures now'. You cannot perform asynchronous background tasks. "
-                "Describe only the actions completed in your current response.",
+                "CRITICAL RULE: NEVER promise to fetch, send, or share pictures/images in the future. "
+                "If a customer asks for a picture: "
+                "DO NOT SAY 'I will send it', 'hold on', 'fetching', 'bhej rahi hoon', 'tasveer bhejta hoon', or similar. "
+                "If there is no image in the candidate products, politely state that no picture is available right now. "
+                "Do not invent image URLs.",
             ),
             (
                 "human",

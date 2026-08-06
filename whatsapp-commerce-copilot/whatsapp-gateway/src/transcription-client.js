@@ -54,7 +54,12 @@ async function transcribeAudio({ buffer, mimeType, fileName }) {
 
   const base64Audio = buffer.toString('base64');
 
-  const response = await ai.models.generateContent({
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Transcription timeout exceeded (${config.transcriptionTimeoutMs}ms)`)), config.transcriptionTimeoutMs);
+  });
+
+  const apiCallPromise = ai.models.generateContent({
     model: config.transcriptionModel,
     contents: [
       {
@@ -74,15 +79,24 @@ async function transcribeAudio({ buffer, mimeType, fileName }) {
     ],
   });
 
-  const transcript = (response.text || '').trim();
+  try {
+    // Note: The @google/genai SDK (v1.0.0) does not officially expose an AbortSignal
+    // option in the generateContent config. We keep Promise.race and clear the timer
+    // to prevent hanging, although the underlying HTTP request cannot be cancelled here.
+    const response = await Promise.race([apiCallPromise, timeoutPromise]);
 
-  logger.info({
-    msg: 'Transcription complete',
-    fileName,
-    transcriptLength: transcript.length,
-  });
+    const transcript = (response.text || '').trim();
 
-  return transcript;
+    logger.info({
+      msg: 'Transcription complete',
+      fileName,
+      transcriptLength: transcript.length,
+    });
+
+    return transcript;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 module.exports = { transcribeAudio };
