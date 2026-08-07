@@ -33,6 +33,7 @@ class VariantResponse(BaseModel):
     price: float
     stock: int
     sku: Optional[str] = None
+    is_active: bool = True
 
     model_config = {"from_attributes": True}
 

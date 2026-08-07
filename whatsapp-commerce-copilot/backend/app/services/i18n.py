@@ -121,6 +121,14 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "That color/size combination isn't available. Please choose another.",
         "ur": "یہ رنگ/سائز کا مجموعہ دستیاب نہیں ہے۔ براہ کرم کوئی دوسرا انتخاب کریں۔",
     },
+    "order_item_no_longer_available": {
+        "en": "Sorry, this item is no longer available.",
+        "ur": "معاف کیجیے، یہ چیز اب دستیاب نہیں رہی۔",
+    },
+    "order_insufficient_stock": {
+        "en": "Sorry, the requested quantity is not available. Only {stock} left in stock.",
+        "ur": "معاف کیجیے، درخواست کردہ تعداد دستیاب نہیں ہے۔ صرف {stock} اسٹاک میں باقی ہیں۔",
+    },
 
     # --- Alternatives ---
     "alternatives_available": {
@@ -171,6 +179,10 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "Sorry, I'm having trouble responding right now. Let me connect you with a team member.",
         "ur": "معاف کیجیے، ابھی جواب دینے میں مشکل ہو رہی ہے۔ آپ کو ہمارے ٹیم ممبر سے جوڑ رہا ہوں۔",
     },
+    "service_unavailable": {
+        "en": "Sorry, we're having a temporary issue on our side. Please try again in a moment.",
+        "ur": "معاف کیجیے، ہمارے سسٹم میں ابھی عارضی مسئلہ ہے۔ براہ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔",
+    },
 
     # --- Order summary field labels ---
     "label_product": {
@@ -212,6 +224,30 @@ _MESSAGES: dict[str, dict[str, str]] = {
     "label_na": {
         "en": "N/A",
         "ur": "N/A",
+    },
+    "label_available_sizes": {
+        "en": "Available sizes",
+        "ur": "دستیاب سائز",
+    },
+    "label_available_colors": {
+        "en": "Available colors",
+        "ur": "دستیاب رنگ",
+    },
+    "label_available": {
+        "en": "Available",
+        "ur": "دستیاب",
+    },
+    "label_stock": {
+        "en": "Stock",
+        "ur": "اسٹاک",
+    },
+    "ask_size": {
+        "en": "Would you like to select a size?",
+        "ur": "کیا آپ کوئی سائز منتخب کرنا چاہیں گے؟",
+    },
+    "ask_color": {
+        "en": "Which color would you prefer?",
+        "ur": "آپ کو کون سا رنگ چاہیے؟",
     },
 }
 

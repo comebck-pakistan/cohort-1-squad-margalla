@@ -38,6 +38,7 @@ class MessageProcessor:
         context_size: str | None = None,
         recently_shown_products: list[str] | None = None,
         preferences: dict | None = None,
+        product_query_override: str | None = None,
     ) -> ProcessedResponse:
         """Process a customer message through the full pipeline.
 
@@ -64,6 +65,13 @@ class MessageProcessor:
 
         # Step 3: Detect intent
         intent_result = detect_intent(normalized)
+
+        # A validated LLM query rewrite means "search for this product". Forcing
+        # the intent to product_search bypasses the non-product early returns so
+        # the rewritten phrase actually drives catalog search. Only ever set when
+        # the LLM produced a query the deterministic extractor could not.
+        if product_query_override:
+            intent_result.intent = "product_search"
 
         # Step 4: Handle greeting
         if intent_result.intent == "greeting" and intent_result.sub_intents == ["greeting"]:
@@ -162,8 +170,9 @@ class MessageProcessor:
             return response
 
         # Step 9: Product search
-        # If no product_query but we have color/size, search by those attributes
-        search_query = entities.product_query
+        # If no product_query but we have color/size, search by those attributes.
+        # A validated LLM query rewrite takes precedence over regex extraction.
+        search_query = product_query_override or entities.product_query
         search_category = entities.category
         if not search_query and not entities.sku and not search_category and not contextual_product_id:
             if (
@@ -208,17 +217,11 @@ class MessageProcessor:
             store_language=store_language,
         )
         if intent_result.intent == "picture_request" and response.matched_product_id and not response.image_url:
-            response.message += (
-                "\nIs product ki picture abhi catalog mein upload nahi hai."
-                if store_language == "roman_urdu"
-                else "\nA picture for this product has not been uploaded yet."
-            )
+            from app.services.i18n import t
+            response.message += t("picture_not_uploaded", store_language)
         if intent_result.intent == "negotiation" and response.matched_product_id:
-            response.message += (
-                "\nYeh catalog price hai. Special discount ke liye team member se confirm karwa deta hoon."
-                if store_language == "roman_urdu"
-                else "\nThis is the catalog price. I can ask a team member to confirm any special discount."
-            )
+            from app.services.i18n import t
+            response.message += t("negotiation_note", store_language)
             response.needs_human = True
             response.escalation_reason = "negotiation"
         response.store_id = store_id

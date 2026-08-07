@@ -48,10 +48,19 @@ class ConversationManager:
             select(Conversation).where(
                 Conversation.store_id == store_id,
                 Conversation.customer_id == customer.id,
-                Conversation.status == "active",
-            ).options(selectinload(Conversation.messages))
+            ).order_by(Conversation.created_at.desc()).limit(1).options(selectinload(Conversation.messages))
         )
         conversation = result.scalar_one_or_none()
+
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+        # If conversation is closed, or expired (e.g., > 24 hours old), clear order context and reset to active
+        if conversation:
+            is_expired = (now - conversation.updated_at).total_seconds() > 24 * 3600
+            if conversation.status == "closed" or is_expired:
+                conversation.status = "active"
+                self.clear_order_context(conversation)
 
         if not conversation:
             conversation = Conversation(
@@ -66,6 +75,23 @@ class ConversationManager:
             await db.flush()
 
         return conversation, customer
+
+    def clear_product_context(self, conversation: Conversation):
+        """Clear current product and variants (e.g., on a new topic)."""
+        conversation.current_product_id = None
+        conversation.current_variant_id = None
+        conversation.selected_color = None
+        conversation.selected_size = None
+        conversation.quantity = None
+
+    def clear_order_context(self, conversation: Conversation):
+        """Clear product context and order state."""
+        self.clear_product_context(conversation)
+        conversation.order_stage = "BROWSING"
+        conversation.customer_name = None
+        conversation.payment_method = None
+        # Intentionally keeping customer_phone and customer_address for future convenience
+
 
     def apply_context(
         self,
@@ -167,6 +193,8 @@ class ConversationManager:
                 resolved["color"] = conversation.selected_color
             if not entities.get("size") and conversation.selected_size:
                 resolved["size"] = conversation.selected_size
+        elif has_product_ref:
+            resolved["is_new_topic"] = True
 
         # Also return the recently shown products and preferences for search context
         resolved["recently_shown_products"] = conversation.get_recently_shown_products()

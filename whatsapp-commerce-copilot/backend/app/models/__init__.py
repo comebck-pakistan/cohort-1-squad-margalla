@@ -7,6 +7,7 @@ from app.models.conversation import Conversation, Message
 from app.models.order import Order, OrderItem
 from app.models.whatsapp import WhatsAppSession
 from app.models.handoff import HumanHandoff
+from app.models.auth import AuthSession
 
 __all__ = [
     "Store",
@@ -21,4 +22,5 @@ __all__ = [
     "OrderItem",
     "WhatsAppSession",
     "HumanHandoff",
+    "AuthSession",
 ]

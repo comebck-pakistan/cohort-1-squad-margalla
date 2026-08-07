@@ -29,7 +29,8 @@ services:
       retries: 5
 
   evolution-api:
-    image: evoapicloud/evolution-api:latest
+    # Pinned to a known-compatible release for reproducible deploys (avoid :latest).
+    image: evoapicloud/evolution-api:v2.3.7
     container_name: wcc-evolution
     ports:
       - "8081:8080"
@@ -67,7 +68,7 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-gemini}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -78,6 +79,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
     restart: unless-stopped
 
   gateway:
@@ -94,15 +101,23 @@ services:
       EVOLUTION_API_URL: http://evolution-api:8080
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-evo-dev-key}
       EVOLUTION_WEBHOOK_URL: http://gateway:3001/webhook/evolution
-      EVOLUTION_API_VERSION: "latest"
+      EVOLUTION_API_VERSION: ${EVOLUTION_API_VERSION:-2.3.7}
       MAX_INBOUND_AGE_SECONDS: ${MAX_INBOUND_AGE_SECONDS:-300}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-gemini-2.5-flash}
       MAX_AUDIO_BYTES: ${MAX_AUDIO_BYTES:-10485760}
       TRANSCRIPTION_TIMEOUT_MS: ${TRANSCRIPTION_TIMEOUT_MS:-45000}
     depends_on:
-      - backend
-      - evolution-api
+      backend:
+        condition: service_healthy
+      evolution-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
 volumes:

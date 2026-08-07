@@ -15,12 +15,49 @@ import json
 import httpx
 import structlog
 from abc import ABC, abstractmethod
+from enum import Enum
 from pydantic import BaseModel, Field, ValidationError
 from typing import Optional
 
 from app.config import get_settings
 
 logger = structlog.get_logger()
+
+
+class AIIntentEnum(str, Enum):
+    """Closed set of intents the system understands.
+
+    The LLM must select one of these; any value outside this set is treated as
+    unknown and never allowed to override the deterministic classifier.
+    """
+    GREETING = "greeting"
+    ACKNOWLEDGEMENT = "acknowledgement"
+    PRODUCT_SEARCH = "product_search"
+    PRICE_QUERY = "price_query"
+    STOCK_QUERY = "stock_query"
+    COLOR_QUERY = "color_query"
+    SIZE_QUERY = "size_query"
+    PICTURE_REQUEST = "picture_request"
+    COMPARISON = "comparison"
+    ALTERNATIVES = "alternatives"
+    NEGOTIATION = "negotiation"
+    ORDER_REQUEST = "order_request"
+    ORDER_CONFIRMATION = "order_confirmation"
+    ORDER_STATUS = "order_status"
+    ORDER_CANCEL = "order_cancel"
+    COMPLAINT = "complaint"
+    COD_QUERY = "cod_query"
+    DELIVERY_QUERY = "delivery_query"
+    RETURNS_QUERY = "returns_query"
+    EXCHANGE_QUERY = "exchange_query"
+    STORE_INFO = "store_info"
+    HUMAN_AGENT_REQUEST = "human_agent_request"
+    UNSUPPORTED = "unsupported"
+    UNKNOWN = "unknown"
+
+
+# Fast membership set for validating LLM-provided intents.
+KNOWN_INTENTS: frozenset[str] = frozenset(e.value for e in AIIntentEnum)
 
 
 class AIRequestContext(BaseModel):
@@ -329,9 +366,9 @@ input_language, response_language, language_confidence."""
 
     def _build_system_prompt(self, context: AIRequestContext) -> str:
         store_name = context.store_name
-        lang_name = "Roman Urdu" if context.store_language == 'roman_urdu' else "English"
+        lang_name = "Urdu (script)" if context.store_language in ('ur', 'roman_urdu') else "English"
         return f"""You are {store_name}'s AI assistant on WhatsApp.
-Respond in {lang_name}.
+Respond in {lang_name}. When reply_language is 'Urdu (script)', write ALL sentences in proper Unicode Urdu script - never in Roman Urdu (Latin letters).
 Never invent products, sizes, prices, or policies.
 CRITICAL RULE: NEVER promise to fetch, send, or share pictures/images in the future.
 If a customer asks for a picture:
@@ -374,14 +411,7 @@ class LangChainProvider(AIProvider):
     closed set of products and policies.
     """
 
-    _ALLOWED_INTENTS = ", ".join([
-        "greeting", "acknowledgement", "product_search", "price_query",
-        "stock_query", "color_query", "size_query", "picture_request",
-        "comparison", "alternatives", "negotiation", "order_request",
-        "order_confirmation", "order_status", "order_cancel", "complaint",
-        "cod_query", "delivery_query", "returns_query", "exchange_query",
-        "store_info", "human_agent_request", "unsupported", "unknown",
-    ])
+    _ALLOWED_INTENTS = ", ".join(e.value for e in AIIntentEnum)
 
     def __init__(self):
         settings = get_settings()
@@ -465,11 +495,8 @@ class LangChainProvider(AIProvider):
         response_prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                "You are the WhatsApp sales assistant for {store_name}. "
-                "The session response language is {reply_language}. "
-                "When reply_language is 'Urdu (script)', write ALL sentences in proper Unicode Urdu script — "
-                "never in Roman Urdu (Latin letters). "
-                "When reply_language is 'English', write in English. "
+                "You are {store_name}'s AI assistant on WhatsApp.\n"
+                "Respond in {reply_language}. When reply_language is 'Urdu (script)', write ALL sentences in proper Unicode Urdu script - never in Roman Urdu (Latin letters).\n"
                 "Use the supplied conversation state, recent messages and verified "
                 "catalogue results. Resolve phrases such as 'the casual one' "
                 "using previously shown products. Never request information the "
@@ -480,11 +507,13 @@ class LangChainProvider(AIProvider):
                 "inventory or policies. Keep replies short, natural and suitable "
                 "for Pakistani WhatsApp customers. Any selected product or variant ID must be "
                 "copied exactly from the supplied data. "
-                "CRITICAL RULE: NEVER promise to fetch, send, or share pictures/images in the future. "
-                "If a customer asks for a picture: "
-                "DO NOT SAY 'I will send it', 'hold on', 'fetching', 'bhej rahi hoon', 'tasveer bhejta hoon', or similar. "
-                "If there is no image in the candidate products, politely state that no picture is available right now. "
-                "Do not invent image URLs.",
+                "CRITICAL RULE: NEVER promise to fetch, send, or share pictures/images in the future.\n"
+                "If a customer asks for a picture:\n"
+                "- DO NOT SAY \"I will send it\", \"hold on\", \"fetching\", \"bhej rahi hoon\", \"tasveer bhejta hoon\", or similar.\n"
+                "- If there is no image in the candidate products, politely state that no picture is available right now.\n"
+                "- Do not invent image URLs.\n\n"
+                "AVAILABLE PRODUCTS:\n{candidate_products}\n\n"
+                "STORE POLICIES:\n{candidate_policies}"
             ),
             (
                 "human",

@@ -1,10 +1,12 @@
 """Product management routes."""
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pathlib import Path
+import json
 import os
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 import structlog
 
@@ -14,6 +16,86 @@ from app.models.store import Store
 from app.schemas.api import ProductResponse
 
 logger = structlog.get_logger()
+
+# --- Validation limits ---
+MAX_NAME_LEN = 255
+MAX_SKU_LEN = 100
+MAX_CATEGORY_LEN = 100
+MAX_DESCRIPTION_LEN = 5000
+
+
+def _parse_variants(raw: str | None, default_price: float) -> list[dict]:
+    """Parse and validate the optional variants JSON payload.
+
+    Raises HTTPException(400) with a precise, safe message on any problem.
+    Returns a list of normalized variant dicts (empty when none supplied).
+    """
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid variants payload: not valid JSON")
+    if not isinstance(parsed, list):
+        raise HTTPException(status_code=400, detail="Invalid variants payload: expected a list")
+
+    normalized: list[dict] = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            raise HTTPException(status_code=400, detail="Invalid variants payload: each variant must be an object")
+        price = entry.get("price", default_price)
+        stock = entry.get("stock", 0)
+        try:
+            price = float(price)
+            stock = int(stock)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Variant price/stock must be numeric")
+        if price < 0:
+            raise HTTPException(status_code=400, detail="Price cannot be negative")
+        if stock < 0:
+            raise HTTPException(status_code=400, detail="Stock cannot be negative")
+        v_sku = (entry.get("sku") or "").strip() or None
+        if v_sku and len(v_sku) > MAX_SKU_LEN:
+            raise HTTPException(status_code=400, detail=f"SKU too long (max {MAX_SKU_LEN} characters)")
+        color = (entry.get("color") or "").strip() or None
+        size = (entry.get("size") or "").strip() or None
+        normalized.append({
+            "color": color,
+            "size": size,
+            "price": price,
+            "stock": stock,
+            "sku": v_sku,
+            "is_active": bool(entry.get("is_active", True)),
+        })
+    return normalized
+
+
+async def _assert_unique_store_skus(db: AsyncSession, store_id: str, new_skus: list[str]) -> None:
+    """Enforce store-scoped SKU uniqueness across product and variant SKUs.
+
+    Comparison is case-insensitive so it matches catalog-search SKU lookups.
+    Raises HTTPException(400) on any duplicate (within the request or in the DB).
+    """
+    upper = [s.upper() for s in new_skus if s]
+    if not upper:
+        return
+    if len(upper) != len(set(upper)):
+        raise HTTPException(status_code=400, detail="Duplicate store-level SKU in request")
+
+    existing_products = await db.execute(
+        select(Product.sku).where(Product.store_id == store_id, Product.sku.isnot(None))
+    )
+    existing = {s.upper() for (s,) in existing_products.all() if s}
+    existing_variants = await db.execute(
+        select(ProductVariant.sku)
+        .join(Product, ProductVariant.product_id == Product.id)
+        .where(Product.store_id == store_id, ProductVariant.sku.isnot(None))
+    )
+    existing |= {s.upper() for (s,) in existing_variants.all() if s}
+
+    for s in upper:
+        if s in existing:
+            raise HTTPException(status_code=400, detail="Duplicate store-level SKU")
 
 # ---------------------------------------------------------------------------
 # Upload-directory helpers (shared with main.py via get_upload_dir)
@@ -167,7 +249,10 @@ async def create_product(
     stock: int = Form(1),
     category: str = Form(None),
     description: str = Form(None),
+    sku: str = Form(None),
     labels: str = Form(None),
+    is_active: bool = Form(True),
+    variants: str = Form(None),
     image: UploadFile = File(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -176,6 +261,33 @@ async def create_product(
     if not store:
         raise HTTPException(status_code=404, detail="Store not found")
 
+    # --- Validate cheap scalar fields BEFORE touching the image or DB ---
+    name = (name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    if len(name) > MAX_NAME_LEN:
+        raise HTTPException(status_code=400, detail=f"Name too long (max {MAX_NAME_LEN} characters)")
+    if price is None or price < 0:
+        raise HTTPException(status_code=400, detail="Price cannot be negative")
+    if stock is None or stock < 0:
+        raise HTTPException(status_code=400, detail="Stock cannot be negative")
+    category = (category or "").strip() or None
+    if category and len(category) > MAX_CATEGORY_LEN:
+        raise HTTPException(status_code=400, detail=f"Category too long (max {MAX_CATEGORY_LEN} characters)")
+    if description and len(description) > MAX_DESCRIPTION_LEN:
+        raise HTTPException(status_code=400, detail=f"Description too long (max {MAX_DESCRIPTION_LEN} characters)")
+    sku = (sku or "").strip() or None
+    if sku and len(sku) > MAX_SKU_LEN:
+        raise HTTPException(status_code=400, detail=f"SKU too long (max {MAX_SKU_LEN} characters)")
+
+    parsed_variants = _parse_variants(variants, default_price=price)
+
+    # Store-level SKU uniqueness across product + variant SKUs (case-insensitive)
+    await _assert_unique_store_skus(
+        db, store_id, [sku] + [v["sku"] for v in parsed_variants]
+    )
+
+    # --- Process image only after validation passes (avoids orphaned uploads) ---
     image_url = None
     if image:
         image_url = await _process_image_upload(image)
@@ -187,28 +299,36 @@ async def create_product(
             category=category,
             description=description,
             base_price=price,
-            image_url=image_url
+            sku=sku,
+            is_active=is_active,
+            image_url=image_url,
         )
         db.add(new_product)
         await db.flush()
 
-        variant = ProductVariant(
-            product_id=new_product.id,
-            price=price,
-            stock=stock,
-        )
-        db.add(variant)
+        if parsed_variants:
+            for v in parsed_variants:
+                db.add(ProductVariant(product_id=new_product.id, **v))
+        else:
+            # Legacy single-variant behavior: derive one default variant.
+            db.add(ProductVariant(
+                product_id=new_product.id,
+                price=price,
+                stock=stock,
+                is_active=True,
+            ))
 
         if labels:
             label_list = [label.strip() for label in labels.split(",") if label.strip()]
             for label in label_list:
-                alias = ProductAlias(
-                    product_id=new_product.id,
-                    alias=label
-                )
-                db.add(alias)
+                db.add(ProductAlias(product_id=new_product.id, alias=label))
 
         await db.commit()
+    except IntegrityError:
+        # DB-level unique constraint (store_id, sku) — race with a concurrent insert.
+        await db.rollback()
+        _cleanup_local_image(image_url)
+        raise HTTPException(status_code=400, detail="Duplicate store-level SKU")
     except Exception:
         await db.rollback()
         logger.error("product_creation_failed", error="Database error during product creation")
@@ -249,8 +369,15 @@ from pydantic import BaseModel
 class UpdateStockRequest(BaseModel):
     stock: int
 
+
+class ActiveRequest(BaseModel):
+    is_active: bool
+
+
 @router.patch("/{product_id}/stock")
 async def update_stock(store_id: str, product_id: str, request: UpdateStockRequest, db: AsyncSession = Depends(get_db)):
+    if request.stock < 0:
+        raise HTTPException(status_code=400, detail="Stock cannot be negative")
     result = await db.execute(
         select(Product).where(Product.id == product_id, Product.store_id == store_id).options(selectinload(Product.variants))
     )
@@ -261,10 +388,82 @@ async def update_stock(store_id: str, product_id: str, request: UpdateStockReque
     if not product.variants:
         raise HTTPException(status_code=400, detail="Product has no variants")
 
-    # Just update the first variant for simplicity in MVP
+    # Legacy MVP endpoint: updates the first variant. New callers should use the
+    # variant-specific endpoint below so the correct variant is updated.
     product.variants[0].stock = request.stock
     await db.commit()
     return {"status": "updated", "stock": request.stock}
+
+
+@router.patch("/{product_id}/variants/{variant_id}/stock")
+async def update_variant_stock(
+    store_id: str,
+    product_id: str,
+    variant_id: str,
+    request: UpdateStockRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the stock of a specific variant (never silently the first one)."""
+    if request.stock < 0:
+        raise HTTPException(status_code=400, detail="Stock cannot be negative")
+    result = await db.execute(
+        select(Product)
+        .where(Product.id == product_id, Product.store_id == store_id)
+        .options(selectinload(Product.variants))
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    variant = next((v for v in product.variants if v.id == variant_id), None)
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    variant.stock = request.stock
+    await db.commit()
+    return {"status": "updated", "stock": variant.stock, "variant_id": variant_id}
+
+
+@router.patch("/{product_id}/active")
+async def set_product_active(
+    store_id: str,
+    product_id: str,
+    request: ActiveRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle a product's active status (store-scoped)."""
+    result = await db.execute(
+        select(Product).where(Product.id == product_id, Product.store_id == store_id)
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    product.is_active = request.is_active
+    await db.commit()
+    return {"status": "updated", "is_active": product.is_active}
+
+
+@router.patch("/{product_id}/variants/{variant_id}/active")
+async def set_variant_active(
+    store_id: str,
+    product_id: str,
+    variant_id: str,
+    request: ActiveRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle a specific variant's active status (store-scoped)."""
+    result = await db.execute(
+        select(Product)
+        .where(Product.id == product_id, Product.store_id == store_id)
+        .options(selectinload(Product.variants))
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    variant = next((v for v in product.variants if v.id == variant_id), None)
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    variant.is_active = request.is_active
+    await db.commit()
+    return {"status": "updated", "is_active": variant.is_active}
 
 @router.put("/{product_id}/image")
 async def replace_product_image(
