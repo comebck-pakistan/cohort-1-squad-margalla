@@ -14,7 +14,7 @@ from app.models.order import Order
 from app.models.handoff import HumanHandoff
 from app.models.product import Product, ProductVariant
 from app.models.policy import StorePolicy
-from app.services.ai_provider import AIRequestContext, get_ai_provider
+from app.services.ai_provider import AIRequestContext, KNOWN_INTENTS, get_ai_provider
 from app.services.conversation_manager import ConversationManager
 from app.services.entity_extractor import extract_entities
 from app.services.i18n import t
@@ -52,7 +52,16 @@ class ConversationController:
 
         llm_classification = await get_ai_provider().classify_intent(message, store_language)
         if llm_classification:
-            if llm_classification.intent and llm_classification.intent != "unknown":
+            # Only let the LLM override the deterministic intent when it names a
+            # KNOWN intent AND is at least as confident as the deterministic
+            # detector. A low-confidence or unknown LLM guess must never override
+            # a higher-confidence deterministic result (Phase 9 grounding rule).
+            if (
+                llm_classification.intent
+                and llm_classification.intent != "unknown"
+                and llm_classification.intent in KNOWN_INTENTS
+                and llm_classification.confidence >= intent.confidence
+            ):
                 intent.intent = llm_classification.intent
                 intent.confidence = llm_classification.confidence
 
@@ -123,6 +132,11 @@ class ConversationController:
             conversation, normalized, entity_dict
         )
 
+        # Req 8: Explicit new-topic detection: clear old product context
+        # ONLY clear context if this is a product search/inquiry, NOT an order/transaction command
+        if resolved.get("is_new_topic") and intent.intent not in {"order_request", "order_confirmation", "order_status", "order_cancel", "greeting"}:
+            self.conversations.clear_product_context(conversation)
+
         if (
             conversation.order_stage == "ORDER_CONFIRMATION"
             and re.fullmatch(r'(no|nope|nahi|nahin|na|نہیں|نا)', normalized)
@@ -142,6 +156,19 @@ class ConversationController:
             if alternative:
                 return alternative
 
+        # When the accepted LLM classification is a product search with a rewritten
+        # query (e.g. "lal wala" → "Red Kurta"), pass that query through so the
+        # rewrite drives catalog search. In mock/deterministic operation the LLM
+        # query equals the regex query, so this is a no-op; it only diverges when a
+        # real LLM rewrites a phrase the regex could not resolve.
+        product_query_override = None
+        if (
+            llm_classification
+            and intent.intent == "product_search"
+            and llm_classification.product_query
+        ):
+            product_query_override = llm_classification.product_query
+
         response = self.processor.process(
             message=message,
             products=products,
@@ -155,6 +182,7 @@ class ConversationController:
             context_size=resolved.get("size"),
             recently_shown_products=resolved.get("recently_shown_products"),
             preferences=resolved.get("preferences"),
+            product_query_override=product_query_override,
         )
         self.conversations.apply_context(conversation, response)
         await db.flush()
@@ -287,12 +315,8 @@ class ConversationController:
 
         if conversation.order_stage == "ORDER_CONFIRMATION":
             if intent == "order_confirmation" and variant:
-                order = self.orders.create_order(conversation, product, variant)
-                db.add(order)
-                await db.flush()
-                return self._order_message(
-                    t("order_confirmed", lang, order_id=order.id),
-                    conversation, response,
+                return await self._finalize_order(
+                    db, conversation, product, variant, lang, response
                 )
             return self._order_message(
                 t("order_confirm_or_cancel", lang),
@@ -303,6 +327,67 @@ class ConversationController:
         if prompt:
             return self._order_message(prompt, conversation, response)
         return None
+
+    async def _finalize_order(
+        self,
+        db: AsyncSession,
+        conversation: Conversation,
+        product: Product,
+        variant: ProductVariant,
+        lang: str,
+        response: ProcessedResponse,
+    ) -> ProcessedResponse:
+        """Commit an order atomically: lock variant, validate, persist, decrement.
+
+        An order is only successful after the row is validated and stock is
+        decremented within the caller's transaction. A failed check returns a
+        truthful message and never creates an order or mutates stock.
+        """
+        qty = conversation.quantity or 1
+
+        # Re-load and lock the authoritative variant row inside the transaction.
+        # FOR UPDATE serializes concurrent final-unit purchases on Postgres;
+        # SQLite ignores the clause but the single-writer model is equivalent.
+        locked = await db.execute(
+            select(ProductVariant)
+            .where(ProductVariant.id == variant.id)
+            .with_for_update()
+        )
+        fresh = locked.scalar_one_or_none()
+        if fresh is None:
+            return self._order_message(
+                t("order_item_no_longer_available", lang), conversation, response
+            )
+
+        # Verify the variant still belongs to this store and is active.
+        parent = await db.get(Product, fresh.product_id)
+        if (
+            parent is None
+            or parent.store_id != conversation.store_id
+            or not parent.is_active
+            or not fresh.is_active
+        ):
+            return self._order_message(
+                t("order_item_no_longer_available", lang), conversation, response
+            )
+
+        # Verify sufficient stock before committing anything.
+        if fresh.stock < qty:
+            return self._order_message(
+                t("order_insufficient_stock", lang, stock=fresh.stock),
+                conversation, response,
+            )
+
+        # Persist the order and decrement stock in one transaction.
+        order = self.orders.create_order(conversation, product, fresh)
+        db.add(order)
+        fresh.stock -= qty
+        await db.flush()
+        self.conversations.clear_order_context(conversation)
+        return self._order_message(
+            t("order_confirmed", lang, order_id=order.id),
+            conversation, response,
+        )
 
     async def _order_status(
         self, db, conversation, store_id, customer_number, store_language
@@ -343,8 +428,7 @@ class ConversationController:
         order = result.scalar_one_or_none()
         if order:
             order.status = "cancelled"
-        conversation.order_stage = "BROWSING"
-        conversation.quantity = None
+        self.conversations.clear_order_context(conversation)
         lang = "ur" if store_language in ("ur", "roman_urdu") else "en"
         return ProcessedResponse(
             message=t("order_cancelled", lang), intent="order_cancel", confidence=1.0,

@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import structlog
 
 from app.config import get_settings
 from app.database import get_db
@@ -24,6 +25,7 @@ from app.schemas.api import (
 from app.services.conversation_controller import ConversationController
 from app.services.conversation_manager import ConversationManager, DuplicateMessageError
 
+logger = structlog.get_logger()
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/internal/whatsapp", tags=["internal"])
 
@@ -101,18 +103,41 @@ async def receive_message(
             store_id=store.id,
         )
 
-    # Process through pipeline
-    response = await _controller.process(
-        db=db,
-        conversation=conv,
-        message=data.message,
-        products=products,
-        policies=policies,
-        store_name=store.business_name,
-        store_language=store.preferred_language,
-        store_id=store.id,
-        customer_number=data.customer_number,
-    )
+    # Capture scalar store fields before processing so an error path can build a
+    # response without touching the ORM object after a rollback expires it.
+    store_id = store.id
+    store_name = store.business_name
+    store_language = store.preferred_language
+
+    # Process through pipeline. A processing/DB failure must return a truthful
+    # temporary-service response — never fabricated product data — with a 200 so
+    # the gateway can retry the un-persisted message later.
+    try:
+        response = await _controller.process(
+            db=db,
+            conversation=conv,
+            message=data.message,
+            products=products,
+            policies=policies,
+            store_name=store_name,
+            store_language=store_language,
+            store_id=store_id,
+            customer_number=data.customer_number,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("message_processing_failed", store_id=store_id)
+        await db.rollback()
+        from app.services.i18n import t
+        lang = "ur" if store_language in ("ur", "roman_urdu") else "en"
+        return DemoMessageResponse(
+            message=t("service_unavailable", lang),
+            intent="error",
+            confidence=0.0,
+            matched_product_id=None,
+            store_id=store_id,
+        )
 
     inbound.set_processed_result(response.to_dict())
     await _conv_manager.save_message(db, conv, response.message, "outbound")

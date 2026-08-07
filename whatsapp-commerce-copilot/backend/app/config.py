@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     # Internal service auth
     INTERNAL_SERVICE_TOKEN: str = "dev-internal-token"
 
+    # Seller authentication (single shared admin password → store-bound session)
+    # AUTH_ENABLED defaults False so local dev/demo stays anonymous and the
+    # existing dashboard keeps working. Production MUST set AUTH_ENABLED=true and
+    # a strong SELLER_ADMIN_PASSWORD.
+    AUTH_ENABLED: bool = False
+    SELLER_ADMIN_PASSWORD: Optional[str] = None
+    SESSION_TTL_SECONDS: int = 86400  # 24h
+    SESSION_COOKIE_NAME: str = "wcc_session"
+    COOKIE_SECURE: bool = False  # set True in production (HTTPS only)
+    COOKIE_SAMESITE: str = "lax"
+
     # AI Provider
     AI_PROVIDER: str = "gemini"
     OPENAI_API_KEY: Optional[str] = None

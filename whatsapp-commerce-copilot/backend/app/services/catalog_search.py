@@ -210,7 +210,35 @@ class CatalogSearchService:
             elif result.best_match and result.best_match not in result.matches:
                 result.best_match = result.matches[0] if result.matches else None
 
+        # Final tie-breaker: color-in-name disambiguation.
+        # When results are still ambiguous and the customer named a color that
+        # appears in exactly ONE candidate's product name/aliases, resolve to it.
+        # This handles "blue kurta" vs "red kurta", where the discriminating word
+        # is in the product NAME rather than a variant colour. It only fires on a
+        # unique name-colour match, so a genuinely ambiguous set (e.g. three
+        # products all named "... black sneakers") is left untouched.
+        if result.is_ambiguous and color and len(result.matches) >= 2:
+            color_tokens = set(tokenize(color.lower()))
+            if color_tokens:
+                named = [
+                    m for m in result.matches
+                    if self._name_contains_color(m.product, color_tokens)
+                ]
+                if len(named) == 1:
+                    winner = named[0]
+                    result.matches.remove(winner)
+                    result.matches.insert(0, winner)
+                    result.best_match = winner
+                    result.is_ambiguous = False
+
         return result
+
+    @staticmethod
+    def _name_contains_color(product: Product, color_tokens: set) -> bool:
+        """True when every colour token appears in the product name or an alias."""
+        names = [product.name.lower()]
+        names.extend(a.alias.lower() for a in product.aliases)
+        return any(color_tokens <= set(tokenize(name)) for name in names)
 
     def _match_by_sku(self, products: list[Product], sku: str) -> MatchedProduct | None:
         """Try exact SKU match on products and their variants."""
