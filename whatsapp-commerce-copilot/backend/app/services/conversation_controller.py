@@ -601,6 +601,7 @@ class ConversationController:
         prices = [v.price for v in active_vars if v.price]
         in_stock = any(v.stock > 0 for v in active_vars)
 
+        ur = response_lang in ("ur", "roman_urdu")
         lines = [f"*{product.name}*"]
         if prices:
             lo, hi = min(prices), max(prices)
@@ -608,10 +609,30 @@ class ConversationController:
         elif product.base_price:
             lines.append(f"Price: Rs. {product.base_price:,.0f}")
         if sizes:
-            lines.append("Available sizes: " + ", ".join(sizes))
+            lines.append(("Available sizes: " if not ur else "Sizes: ") + ", ".join(sizes))
         if colors:
-            lines.append("Available colors: " + ", ".join(colors))
-        lines.append("Stock: " + ("Available" if in_stock else "Out of stock"))
+            lines.append(("Available colors: " if not ur else "Colors: ") + ", ".join(colors))
+        lines.append("Stock: " + (("Available" if not ur else "Available") if in_stock
+                                   else ("Out of stock" if not ur else "Stock khatam")))
+
+        # Purchase call-to-action — turn "viewing" into "ordering" the way a real
+        # shop owner asks for the sale. Only invite an order when it's in stock;
+        # out of stock → steer back to other designs. This is what makes the
+        # guided flow (categories → products → choose → ORDER) actually close.
+        lines.append("")
+        if in_stock:
+            if ur:
+                lines.append("Order karne ke liye 'Order' likhein, ya doosray designs "
+                             "dekhne ke liye 'Back' likhein.")
+            else:
+                lines.append("Reply 'Order' to buy this, or 'Back' to see other designs.")
+        else:
+            if ur:
+                lines.append("Ye abhi stock mein nahi hai. Doosray designs dekhne ke liye "
+                             "'Back' likhein.")
+            else:
+                lines.append("This is currently out of stock. Reply 'Back' to see other designs.")
+
         return ProcessedResponse(
             message="\n".join(lines), intent="product_search", confidence=1.0,
             matched_product_id=product.id,
@@ -654,6 +675,12 @@ class ConversationController:
         if not active and intent not in {"order_request", "order_confirmation"}:
             return None
 
+        # Stage at the START of this turn. Cascading (several fields in one message,
+        # e.g. "medium 2") is intentional, but the name/phone reply must not also be
+        # swallowed as the delivery address just because it contains phone digits —
+        # so the address step only fires on a turn that BEGAN awaiting the address.
+        entry_stage = conversation.order_stage
+
         product = self._product(products, conversation.current_product_id)
         lang = "ur" if store_language in ("ur", "roman_urdu") else "en"
         if not product:
@@ -692,6 +719,13 @@ class ConversationController:
         if conversation.order_stage == "PRODUCT_SELECTED":
             # A uniquely filtered variant from catalogue retrieval is safe.
             variant = self._variant(product, response.matched_variant_id)
+            if variant is None:
+                # If the product has exactly one active variant there is nothing to
+                # choose — auto-select it so we don't ask a pointless size/color
+                # question (the way a shop owner wouldn't ask about a one-size item).
+                active_vars = [v for v in product.variants if v.is_active]
+                if len(active_vars) == 1:
+                    variant = active_vars[0]
             if variant:
                 self.orders.advance_stage(conversation, variant=variant)
 
@@ -709,7 +743,7 @@ class ConversationController:
                     conversation, customer_name=name, customer_phone=phone
                 )
 
-        if conversation.order_stage == "CUSTOMER_DETAILS_REQUIRED":
+        if conversation.order_stage == "CUSTOMER_DETAILS_REQUIRED" and entry_stage == "CUSTOMER_DETAILS_REQUIRED":
             if self._looks_like_address(message, intent):
                 conversation.requested_city = entities.delivery_city
                 self.orders.advance_stage(
