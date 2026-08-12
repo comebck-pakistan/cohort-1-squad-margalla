@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import init_db, create_tables
-from app.routers import health, demo, stores, products, internal, whatsapp
+from app.routers import health, demo, stores, products, internal, whatsapp, categories
 
 
 @asynccontextmanager
@@ -55,5 +55,6 @@ app.include_router(health.router)
 app.include_router(demo.router)
 app.include_router(stores.router)
 app.include_router(products.router)
+app.include_router(categories.router)
 app.include_router(internal.router)
 app.include_router(whatsapp.router)

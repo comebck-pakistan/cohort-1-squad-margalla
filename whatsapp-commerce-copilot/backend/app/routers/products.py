@@ -12,8 +12,9 @@ import structlog
 
 from app.database import get_db
 from app.models.product import Product, ProductAlias, ProductVariant
+from app.models.category import Category
 from app.models.store import Store
-from app.schemas.api import ProductResponse
+from app.schemas.api import ProductResponse, MoveProductRequest
 
 logger = structlog.get_logger()
 
@@ -68,6 +69,21 @@ def _parse_variants(raw: str | None, default_price: float) -> list[dict]:
             "is_active": bool(entry.get("is_active", True)),
         })
     return normalized
+
+
+async def _validate_category(db: AsyncSession, store_id: str, category_id: str | None) -> None:
+    """Ensure a category_id (if given) exists and belongs to this store.
+
+    Cross-store assignment is rejected with 400 so a product can never be filed
+    under another store's category.
+    """
+    if not category_id:
+        return
+    result = await db.execute(
+        select(Category.id).where(Category.id == category_id, Category.store_id == store_id)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=400, detail="Category not found in this store")
 
 
 async def _assert_unique_store_skus(db: AsyncSession, store_id: str, new_skus: list[str]) -> None:
@@ -170,12 +186,21 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[ProductResponse])
-async def list_products(store_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Product)
-        .where(Product.store_id == store_id)
-        .options(selectinload(Product.variants))
-    )
+async def list_products(
+    store_id: str,
+    category_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """List a store's products, optionally filtered by category.
+
+    category_id="uncategorized" (or "none") returns products with no category.
+    """
+    query = select(Product).where(Product.store_id == store_id).options(selectinload(Product.variants))
+    if category_id in ("uncategorized", "none"):
+        query = query.where(Product.category_id.is_(None))
+    elif category_id:
+        query = query.where(Product.category_id == category_id)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -248,6 +273,7 @@ async def create_product(
     price: float = Form(...),
     stock: int = Form(1),
     category: str = Form(None),
+    category_id: str = Form(None),
     description: str = Form(None),
     sku: str = Form(None),
     labels: str = Form(None),
@@ -274,6 +300,8 @@ async def create_product(
     category = (category or "").strip() or None
     if category and len(category) > MAX_CATEGORY_LEN:
         raise HTTPException(status_code=400, detail=f"Category too long (max {MAX_CATEGORY_LEN} characters)")
+    category_id = (category_id or "").strip() or None
+    await _validate_category(db, store_id, category_id)
     if description and len(description) > MAX_DESCRIPTION_LEN:
         raise HTTPException(status_code=400, detail=f"Description too long (max {MAX_DESCRIPTION_LEN} characters)")
     sku = (sku or "").strip() or None
@@ -297,6 +325,7 @@ async def create_product(
             store_id=store_id,
             name=name,
             category=category,
+            category_id=category_id,
             description=description,
             base_price=price,
             sku=sku,
@@ -439,6 +468,30 @@ async def set_product_active(
     product.is_active = request.is_active
     await db.commit()
     return {"status": "updated", "is_active": product.is_active}
+
+
+@router.patch("/{product_id}/category")
+async def move_product_category(
+    store_id: str,
+    product_id: str,
+    request: MoveProductRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Move a product to another category (or to Uncategorized when null).
+
+    The target category must belong to the same store.
+    """
+    result = await db.execute(
+        select(Product).where(Product.id == product_id, Product.store_id == store_id)
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    target = (request.category_id or "").strip() or None
+    await _validate_category(db, store_id, target)
+    product.category_id = target
+    await db.commit()
+    return {"status": "updated", "category_id": target}
 
 
 @router.patch("/{product_id}/variants/{variant_id}/active")

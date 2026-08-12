@@ -43,6 +43,7 @@ class ProductResponse(BaseModel):
     store_id: str
     name: str
     category: Optional[str] = None
+    category_id: Optional[str] = None
     sku: Optional[str] = None
     description: Optional[str] = None
     base_price: Optional[float] = None
@@ -51,6 +52,39 @@ class ProductResponse(BaseModel):
     variants: list[VariantResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+# --- Category schemas ---
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=5000)
+    display_order: int = 0
+    is_active: bool = True
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=5000)
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class CategoryResponse(BaseModel):
+    id: str
+    store_id: str
+    name: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    display_order: int
+    is_active: bool
+    product_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class MoveProductRequest(BaseModel):
+    # None → move product to "Uncategorized".
+    category_id: Optional[str] = None
 
 
 # --- Demo message schemas ---

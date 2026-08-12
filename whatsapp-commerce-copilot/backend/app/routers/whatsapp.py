@@ -13,7 +13,8 @@ from app.models.conversation import Conversation
 from app.models.handoff import HumanHandoff
 from app.models.order import Order
 from app.schemas.api import (
-    WhatsAppStatusResponse, WhatsAppQRResponse, ConversationResponse, OrderResponse, ConnectWhatsAppRequest,
+    WhatsAppStatusResponse, WhatsAppQRResponse, ConversationResponse, OrderResponse,
+    OrderItemResponse, ConnectWhatsAppRequest,
 )
 from app.config import get_settings
 from app.utils.phone import normalize_phone_number, PHONE_HELP_MESSAGE

@@ -34,6 +34,13 @@ class Conversation(Base):
     preferences: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string of collected entities (category, style, color, etc.)
     recently_shown_products: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string of list of product IDs
 
+    # Category-browse state. menu_snapshot is the exact numbered menu last shown
+    # so numbered replies ("2", "second one") resolve against what the customer
+    # actually saw. browse_category_id + browse_offset drive product pagination.
+    category_menu_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {"kind","items":[{"n","id","name"}], ...}
+    browse_category_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    browse_offset: Mapped[int] = mapped_column(Integer, default=0)
+
     # Language preference ("en" or "ur")
     preferred_response_language: Mapped[str] = mapped_column(String(10), default="en")
     last_detected_input_language: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -102,6 +109,27 @@ class Conversation(Base):
             recent.append(pid)
         # Keep only the last 5
         self.recently_shown_products = json.dumps(recent[-5:])
+
+    # --- Category-menu snapshot helpers ---
+
+    def get_menu_snapshot(self) -> dict | None:
+        """Return the last shown numbered menu, or None."""
+        if not self.category_menu_snapshot:
+            return None
+        try:
+            return json.loads(self.category_menu_snapshot)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def set_menu_snapshot(self, snapshot: dict | None):
+        """Persist (or clear) the numbered menu snapshot."""
+        self.category_menu_snapshot = json.dumps(snapshot) if snapshot else None
+
+    def clear_browse_state(self):
+        """Clear category-browse pagination + snapshot."""
+        self.category_menu_snapshot = None
+        self.browse_category_id = None
+        self.browse_offset = 0
 
     # --- Language helpers ---
 

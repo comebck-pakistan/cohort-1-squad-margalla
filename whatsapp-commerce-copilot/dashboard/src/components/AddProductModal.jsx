@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 
-const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
+const AddProductModal = ({ storeId, onClose, onProductAdded, categoryId = null, categoryName = null }) => {
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -43,6 +43,7 @@ const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
     data.append('price', formData.price);
     data.append('stock', formData.stock || '1');
     if (formData.category) data.append('category', formData.category);
+    if (categoryId) data.append('category_id', categoryId);
     if (formData.description) data.append('description', formData.description);
     if (formData.labels) data.append('labels', formData.labels);
     if (image) data.append('image', image);
@@ -84,7 +85,9 @@ const AddProductModal = ({ storeId, onClose, onProductAdded }) => {
         maxHeight: '90vh',
         overflowY: 'auto'
       }}>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', fontWeight: 600 }}>Add New Product</h2>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', fontWeight: 600 }}>
+          Add New Product{categoryName ? ` — ${categoryName}` : ''}
+        </h2>
         
         {error && (
           <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem' }}>

@@ -1,6 +1,7 @@
 """All SQLAlchemy models — import this module to register all tables."""
 from app.models.store import Store
 from app.models.product import Product, ProductAlias, ProductVariant
+from app.models.category import Category
 from app.models.policy import StorePolicy
 from app.models.customer import Customer
 from app.models.conversation import Conversation, Message
@@ -14,6 +15,7 @@ __all__ = [
     "Product",
     "ProductAlias",
     "ProductVariant",
+    "Category",
     "StorePolicy",
     "Customer",
     "Conversation",

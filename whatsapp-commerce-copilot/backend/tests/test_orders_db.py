@@ -69,6 +69,71 @@ async def test_order_creation_success(db_session):
     assert orders[0].total_amount == 200.0
 
 @pytest.mark.asyncio
+async def test_order_persists_line_items_snapshot(db_session):
+    """A confirmed order must store exactly which product/variant was ordered,
+    with a name/price snapshot that survives later catalogue edits."""
+    store = make_fashion_store()
+    db_session.add(store)
+    await db_session.flush()
+
+    p = Product(store_id=store.id, name="Snapshot Kurta", is_active=True)
+    db_session.add(p)
+    await db_session.flush()
+    v = ProductVariant(product_id=p.id, color="Blue", size="M", price=1500.0, stock=5, is_active=True)
+    db_session.add(v)
+    await db_session.flush()
+
+    conv = Conversation(
+        store_id=store.id, customer_id="c1", status="active",
+        order_stage="ORDER_CONFIRMATION", quantity=2,
+        customer_name="Ali", customer_phone="923001234567",
+        customer_address="123 Street", requested_city="Lahore",
+    )
+    db_session.add(conv)
+    await db_session.flush()
+
+    from sqlalchemy.orm import selectinload
+    p = (await db_session.execute(select(Product).where(Product.id == p.id).options(selectinload(Product.variants)))).scalar_one()
+    conv.current_product_id = p.id
+    conv.current_variant_id = v.id
+
+    class MockEntities:
+        quantity = None
+        size = None
+        color = None
+        delivery_city = None
+
+    from app.services.response_builder import ProcessedResponse
+    controller = ConversationController()
+    res = await controller._advance_order(
+        db_session, conv, "yes", "order_confirmation", MockEntities(),
+        ProcessedResponse(message="", intent="order_confirmation", confidence=1.0, store_id=store.id, customer_number="923001234567"),
+        [p], "en", "923001234567",
+    )
+    assert "confirmed" in res.message.lower()
+    await db_session.flush()
+
+    # The order carries the line item with correct snapshot fields.
+    order = (await db_session.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.store_id == store.id)
+    )).scalar_one()
+    assert order.customer_city == "Lahore"
+    assert len(order.items) == 1
+    item = order.items[0]
+    assert item.order_id == order.id            # relationship cascade populated it
+    assert item.product_id == p.id
+    assert item.variant_id == v.id
+    assert item.quantity == 2
+    assert item.unit_price == 1500.0
+    assert item.product_name == "Snapshot Kurta"
+    assert order.total_amount == 3000.0
+
+    # Independent query of the order_items table confirms durable persistence.
+    items = (await db_session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+    assert len(items) == 1 and items[0].product_id == p.id
+
+
+@pytest.mark.asyncio
 async def test_order_creation_insufficient_stock(db_session):
     """Test order creation fails gracefully when stock is insufficient."""
     store = make_fashion_store()

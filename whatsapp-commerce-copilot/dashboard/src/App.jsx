@@ -4,7 +4,7 @@ import { API_URL, STORE_ID } from './config';
 import Sidebar from './components/Sidebar';
 import ConversationView from './components/ConversationView';
 import OrdersView from './components/OrdersView';
-import ProductsView from './components/ProductsView';
+import CategoriesView from './components/CategoriesView';
 import QRConnector from './components/QRConnector';
 import { Bell, UserCircle } from 'lucide-react';
 import './index.css';
@@ -131,7 +131,7 @@ function App() {
             <>
               {activeTab === 'conversations' && <ConversationView storeId={currentStore} />}
               {activeTab === 'orders' && <OrdersView storeId={currentStore} />}
-              {activeTab === 'products' && <ProductsView storeId={currentStore} />}
+              {activeTab === 'products' && <CategoriesView storeId={currentStore} />}
             </>
           )}
         </div>
