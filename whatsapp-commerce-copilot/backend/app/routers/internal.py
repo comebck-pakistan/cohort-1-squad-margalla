@@ -109,6 +109,20 @@ async def receive_message(
     store_name = store.business_name
     store_language = store.preferred_language
 
+    # Assemble optional visual context for inbound image messages. Only build it
+    # when the gateway actually forwarded vision output — text/audio are unaffected.
+    vision = None
+    if data.message_type == "image" and (
+        data.vision_description or data.vision_attributes or data.vision_text_ocr
+    ):
+        vision = {
+            "description": data.vision_description,
+            "text_ocr": data.vision_text_ocr,
+            "attributes": data.vision_attributes or [],
+            "confidence": data.vision_confidence,
+            "original_caption": data.original_caption,
+        }
+
     # Process through pipeline. A processing/DB failure must return a truthful
     # temporary-service response — never fabricated product data — with a 200 so
     # the gateway can retry the un-persisted message later.
@@ -123,6 +137,7 @@ async def receive_message(
             store_language=store_language,
             store_id=store_id,
             customer_number=data.customer_number,
+            vision=vision,
         )
     except HTTPException:
         raise
@@ -171,9 +186,14 @@ async def session_event(
     if data.qr_code:
         session.qr_code = data.qr_code
 
-    # Clear QR on terminal states (connected, disconnected, failed)
+    # Persist or clear pairing code from gateway lifecycle events
+    if data.pairing_code is not None:
+        session.pairing_code = data.pairing_code
+
+    # Clear QR and pairing code on terminal states (connected, disconnected, failed)
     if data.status in ("connected", "disconnected", "failed"):
         session.qr_code = None
+        session.pairing_code = None
 
     # Record connection timestamp
     if data.status == "connected":

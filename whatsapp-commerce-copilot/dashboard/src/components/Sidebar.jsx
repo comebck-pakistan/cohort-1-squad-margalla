@@ -6,14 +6,8 @@ import { MessageSquare, Package, ShoppingCart, Power, Settings, HelpCircle, Phon
 const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, setWhatsappStatus, connectedNumber, activeTab, setActiveTab }) => {
   const isConnecting = whatsappStatus === 'initializing' || whatsappStatus === 'waiting_for_qr';
 
-  const handleConnect = async () => {
-    try {
-      const res = await axios.post(`${API_URL}/stores/${currentStore}/whatsapp/connect`);
-      setWhatsappStatus(res.data?.status || 'initializing');
-    } catch (err) {
-      setWhatsappStatus('failed');
-      console.error(err);
-    }
+  const handleConnect = () => {
+    setActiveTab('conversations');
   };
 
   const handleDisconnect = async () => {

@@ -28,9 +28,9 @@ const api = axios.create({
  * @param {string} storeId — used as the instance name
  * @returns {Promise<object>} — Evolution API response (includes QR if qrcode: true)
  */
-async function createInstance(storeId) {
-  logger.info({ msg: 'Creating Evolution API instance', storeId });
-  const response = await api.post('/instance/create', {
+async function createInstance(storeId, phoneNumber = null) {
+  logger.info({ msg: 'Creating Evolution API instance', storeId, hasPhoneNumber: !!phoneNumber });
+  const payload = {
     instanceName: storeId,
     integration: 'WHATSAPP-BAILEYS',
     qrcode: true,
@@ -38,7 +38,7 @@ async function createInstance(storeId) {
       enabled: true,
       url: config.evolutionWebhookUrl,
       byEvents: false,
-      base64: true,
+      base64: config.webhookBase64,
       headers: {
         'X-Webhook-Secret': config.webhookSecret,
       },
@@ -48,7 +48,13 @@ async function createInstance(storeId) {
         'MESSAGES_UPSERT',
       ],
     },
-  });
+  };
+
+  if (phoneNumber) {
+    payload.number = phoneNumber;
+  }
+
+  const response = await api.post('/instance/create', payload);
   return response.data;
 }
 
@@ -85,7 +91,7 @@ async function sendText(storeId, to, text) {
       const payload = {
         number: to,
         text: text,
-        delay: 1200,
+        delay: config.sendDelayMs,
       };
 
       const res = await api.post(`/message/sendText/${storeId}`, payload, {
@@ -121,7 +127,7 @@ async function sendText(storeId, to, text) {
         mediatype: 'image',
         caption: caption || '',
         media: finalMediaUrl,
-        delay: 1200,
+        delay: config.sendDelayMs,
       };
 
       const res = await api.post(`/message/sendMedia/${storeId}`, payload, {
@@ -193,6 +199,53 @@ async function fetchInstance(storeId) {
 }
 
 /**
+ * Update webhook configuration on an existing instance without reconnecting.
+ * Uses Evolution API v2.3.7 webhook/set endpoint.
+ * @param {string} storeId
+ * @returns {Promise<object>}
+ */
+async function setWebhook(storeId) {
+  logger.info({ msg: 'Updating webhook config', storeId });
+  const payload = {
+    enabled: true,
+    url: config.evolutionWebhookUrl,
+    byEvents: false,
+    base64: config.webhookBase64,
+    headers: {
+      'X-Webhook-Secret': config.webhookSecret,
+    },
+    events: [
+      'QRCODE_UPDATED',
+      'CONNECTION_UPDATE',
+      'MESSAGES_UPSERT',
+    ],
+  };
+  try {
+    const response = await api.post(`/webhook/set/${storeId}`, payload);
+    return response.data;
+  } catch (err) {
+    // Non-critical — log and continue. Instance still works with old webhook config.
+    logger.warn({ msg: 'Failed to update webhook config', storeId, status: err.response?.status });
+    return null;
+  }
+}
+
+/**
+ * Infer a MIME type from the original webhook message payload when Evolution's
+ * media response omits one. Works for image/audio/video/document messages.
+ * @param {object} messageData — the full message data object from the webhook
+ * @returns {string|null}
+ */
+function inferWebhookMimeType(messageData) {
+  const m = messageData?.message || {};
+  return m.imageMessage?.mimetype
+    || m.audioMessage?.mimetype
+    || m.videoMessage?.mimetype
+    || m.documentMessage?.mimetype
+    || null;
+}
+
+/**
  * Download media from a received message as a Buffer.
  * Uses the Evolution API getBase64FromMediaMessage endpoint.
  * @param {string} storeId — instance name
@@ -223,9 +276,14 @@ async function downloadMediaMessage(storeId, messageData) {
   }
 
   let base64String = data.base64;
-  let mimeType = data.mimetype || data.mimeType || 'audio/ogg';
+  // Prefer the MIME reported by Evolution; otherwise infer it from the original
+  // webhook message payload (image/audio/video/document). Fall back to a neutral
+  // binary type so we never mislabel non-audio media as audio.
+  let mimeType = data.mimetype || data.mimeType
+    || inferWebhookMimeType(messageData)
+    || 'application/octet-stream';
 
-  // Strip data-URL prefix if present (e.g., "data:audio/ogg;base64,...")
+  // Strip data-URL prefix if present (e.g., "data:image/jpeg;base64,...")
   const dataUrlMatch = base64String.match(/^data:([^;]+);base64,(.+)$/);
   if (dataUrlMatch) {
     mimeType = dataUrlMatch[1];
@@ -234,9 +292,10 @@ async function downloadMediaMessage(storeId, messageData) {
 
   const buffer = Buffer.from(base64String, 'base64');
 
-  // Derive a safe filename from the message ID
-  const ext = mimeType.split('/')[1] || 'ogg';
-  const fileName = `voice_${messageId}.${ext}`;
+  // Derive a safe filename from the message ID. Strip any codec parameters
+  // (e.g. "audio/ogg; codecs=opus") when building the extension.
+  const ext = (mimeType.split('/')[1] || 'bin').split(';')[0].trim() || 'bin';
+  const fileName = `media_${messageId}.${ext}`;
 
   // Never log buffer/base64 content
   logger.info({ msg: 'Media downloaded', storeId, messageId, mimeType, bytes: buffer.length });
@@ -254,4 +313,5 @@ module.exports = {
   deleteInstance,
   isHealthy,
   fetchInstance,
+  setWebhook,
 };

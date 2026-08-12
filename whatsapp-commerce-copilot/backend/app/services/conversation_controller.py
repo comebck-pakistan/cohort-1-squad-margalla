@@ -43,6 +43,7 @@ class ConversationController:
         store_language: str,
         store_id: str,
         customer_number: str,
+        vision: dict | None = None,
     ) -> ProcessedResponse:
         normalized = normalize_text(message)
         lang_detection = detect_language(message)
@@ -169,6 +170,15 @@ class ConversationController:
         ):
             product_query_override = llm_classification.product_query
 
+        # For inbound image messages, the visual analysis is the strongest signal
+        # (the LLM classification never sees the image). Build a bounded search
+        # query from caption + visual attributes + OCR so catalog matching is
+        # driven by what is actually in the picture, scoped to this store only.
+        if vision:
+            vision_query = self._build_vision_query(vision)
+            if vision_query:
+                product_query_override = vision_query
+
         response = self.processor.process(
             message=message,
             products=products,
@@ -193,6 +203,18 @@ class ConversationController:
         )
         if order_response:
             response = order_response
+
+        # Image message with no catalog match: reply honestly with what was seen
+        # instead of a generic "not found" or an AI rephrase that could imply
+        # availability. Matches and clarifications keep the normal grounded flow.
+        if (
+            vision
+            and not response.matched_product_id
+            and not response.needs_clarification
+        ):
+            response.message = self._vision_no_match_message(vision, response_lang)
+            response.intent = "product_search"
+            return response
 
         response = await self._optional_ai_response(
             conversation, message, response, products, policies,
@@ -516,6 +538,65 @@ class ConversationController:
             escalation_reason=ai.escalation_reason,
             store_id=response.store_id,
             customer_number=response.customer_number,
+        )
+
+    @staticmethod
+    def _build_vision_query(vision: dict) -> str | None:
+        """Build a bounded catalog-search query from visual analysis.
+
+        Combines the customer's caption, detected visual attributes (colour,
+        category, style, material, branding) and any OCR text. Falls back to the
+        description only when nothing else is present. All vision output is
+        untrusted descriptive data — used purely as search terms, never as
+        instructions. The result is length-capped so it cannot dominate matching.
+        """
+        parts: list[str] = []
+        caption = (vision.get("original_caption") or "").strip()
+        if caption:
+            parts.append(caption)
+        for attr in (vision.get("attributes") or []):
+            if isinstance(attr, str) and attr.strip():
+                parts.append(attr.strip())
+        ocr = (vision.get("text_ocr") or "").strip()
+        if ocr:
+            parts.append(ocr)
+        if not parts:
+            description = (vision.get("description") or "").strip()
+            if description:
+                # Use only the first few words of a verbose description.
+                parts.append(" ".join(description.split()[:8]))
+        query = " ".join(parts).strip()
+        return query[:200] if query else None
+
+    @staticmethod
+    def _vision_no_match_message(vision: dict, store_language: str) -> str:
+        """Honest, vision-grounded reply when no catalog item matches the image.
+
+        References what was actually seen without claiming availability, and
+        offers to look for similar items. Never invents products.
+        """
+        description = (vision.get("description") or "").strip()
+        # Keep the snippet short and single-line for a clean WhatsApp reply.
+        snippet = " ".join(description.split())[:120]
+        if store_language in ("ur", "roman_urdu"):
+            if snippet:
+                return (
+                    f"Mujhe tasveer mein {snippet} nazar aa raha hai, lekin is store "
+                    "ke catalog mein iska exact match nahi mila. Kya aap milte-julte "
+                    "options dekhna chahenge?"
+                )
+            return (
+                "Mujhe is store ke catalog mein is tasveer ka exact match nahi mila. "
+                "Kya aap milte-julte options dekhna chahenge?"
+            )
+        if snippet:
+            return (
+                f"I can see {snippet}, but I couldn't find an exact match in this "
+                "store's catalog. Would you like to see similar items?"
+            )
+        return (
+            "I couldn't find an exact match for this image in this store's catalog. "
+            "Would you like to see similar items?"
         )
 
     @staticmethod

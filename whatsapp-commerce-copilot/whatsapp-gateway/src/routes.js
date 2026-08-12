@@ -6,6 +6,7 @@
 const express = require('express');
 const config = require('./config');
 const evolutionClient = require('./evolution-client');
+const { connectSession } = require('./connect-flow');
 const { webhookHandler, getCachedQR, mapConnectionState } = require('./webhook-handler');
 
 function createRoutes() {
@@ -32,45 +33,18 @@ function createRoutes() {
     });
   });
 
-  // Connect a store (create/connect WhatsApp instance via Evolution API)
+  // Connect a store (create/connect WhatsApp instance via Evolution API).
+  // All validation/normalization/ordering/error-mapping lives in connectSession
+  // so invalid input can never trigger a destructive instance operation.
   router.post('/sessions/:storeId/connect', authMiddleware, async (req, res) => {
-    try {
-      const { storeId } = req.params;
-
-      // Check if instance already exists
-      const existing = await evolutionClient.fetchInstance(storeId);
-
-      if (existing) {
-        // Instance exists — try to connect (generate new QR)
-        try {
-          const connectResult = await evolutionClient.connectInstance(storeId);
-          // Extract QR from connect response if available
-          const qrBase64 = connectResult?.base64 || connectResult?.qrcode?.base64 || null;
-          return res.json({
-            status: 'initializing',
-            storeId,
-            qr_code: qrBase64,
-          });
-        } catch (err) {
-          // If connect fails, the instance might be in a bad state — delete and recreate
-          await evolutionClient.deleteInstance(storeId);
-        }
-      }
-
-      // Create new instance
-      const result = await evolutionClient.createInstance(storeId);
-
-      // Evolution API may return QR code immediately in the create response
-      const qrBase64 = result?.qrcode?.base64 || null;
-
-      res.json({
-        status: 'initializing',
-        storeId,
-        qr_code: qrBase64,
-      });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+    const { storeId } = req.params;
+    const { phoneNumber } = req.body || {};
+    const { status, body } = await connectSession({ evolutionClient, storeId, phoneNumber });
+    if (status >= 500 || status === 400 || status === 409) {
+      // Log only the mapped status — never the phone number or raw upstream data.
+      console.error('WhatsApp connect failed', { storeId, status });
     }
+    res.status(status).json(body);
   });
 
   // Get session status

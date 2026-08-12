@@ -13,9 +13,10 @@ from app.models.conversation import Conversation
 from app.models.handoff import HumanHandoff
 from app.models.order import Order
 from app.schemas.api import (
-    WhatsAppStatusResponse, WhatsAppQRResponse, ConversationResponse, OrderResponse,
+    WhatsAppStatusResponse, WhatsAppQRResponse, ConversationResponse, OrderResponse, ConnectWhatsAppRequest,
 )
 from app.config import get_settings
+from app.utils.phone import normalize_phone_number, PHONE_HELP_MESSAGE
 import httpx
 import structlog
 
@@ -35,9 +36,16 @@ def _get_gateway_url() -> str:
 # --- WhatsApp routes ---
 
 @router.post("/whatsapp/connect")
-async def connect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db)):
+async def connect_whatsapp(store_id: str, req: ConnectWhatsAppRequest = None, db: AsyncSession = Depends(get_db)):
     """Initiate WhatsApp connection for a store."""
     store = await _get_store(store_id, db)
+
+    # Validate/normalize phone BEFORE mutating any state or calling the gateway.
+    # Empty/None -> QR path (no phone). Present-but-invalid -> 422, no side effects.
+    try:
+        normalized_phone = normalize_phone_number(req.phone_number if req else None)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=PHONE_HELP_MESSAGE)
 
     # Get or create session
     result = await db.execute(
@@ -59,8 +67,13 @@ async def connect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     try:
         async with httpx.AsyncClient() as client:
+            json_body = {}
+            if normalized_phone:
+                json_body["phoneNumber"] = normalized_phone
+
             resp = await client.post(
                 f"{_get_gateway_url()}/sessions/{store_id}/connect",
+                json=json_body,
                 headers={"X-Internal-Token": settings.INTERNAL_SERVICE_TOKEN},
                 timeout=15.0
             )
@@ -69,8 +82,18 @@ async def connect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db)):
 
             # Persist QR if returned immediately by gateway
             qr_code = gw_data.get("qr_code")
-            if qr_code:
-                session.qr_code = qr_code
+            pairing_code = gw_data.get("pairing_code")
+            if gw_data.get("status") == "connected":
+                # Instance was already open — the gateway declined to destroy it.
+                session.status = "connected"
+                session.qr_code = None
+                session.pairing_code = None
+                store.whatsapp_status = "connected"
+            elif qr_code or pairing_code:
+                if qr_code:
+                    session.qr_code = qr_code
+                if pairing_code:
+                    session.pairing_code = pairing_code
                 session.status = "waiting_for_qr"
                 store.whatsapp_status = "waiting_for_qr"
             # else: QR will arrive later via webhook
@@ -80,6 +103,7 @@ async def connect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db)):
                 "status": session.status,
                 "store_id": store_id,
                 "qr_code": qr_code,
+                "pairing_code": pairing_code,
             }
 
     except httpx.TimeoutException:
@@ -87,14 +111,30 @@ async def connect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db)):
         session.status = "failed"
         store.whatsapp_status = "failed"
         await db.commit()
-        raise HTTPException(status_code=504, detail="Gateway timeout — Evolution API may be unavailable")
+        raise HTTPException(status_code=504, detail="WhatsApp service timed out. Please try again.")
+
+    except httpx.HTTPStatusError as e:
+        # Map upstream gateway status to a safe client status. Never surface the
+        # internal gateway URL, MDN link, or raw upstream body to the dashboard.
+        upstream = e.response.status_code
+        logger.error("gateway_connect_http_error", store_id=store_id, upstream_status=upstream)
+        session.status = "failed"
+        store.whatsapp_status = "failed"
+        await db.commit()
+        if upstream in (400, 422):
+            raise HTTPException(status_code=422, detail=PHONE_HELP_MESSAGE)
+        if upstream == 409:
+            raise HTTPException(status_code=409, detail="This WhatsApp session is already being set up. Please wait a moment and try again.")
+        if upstream == 504:
+            raise HTTPException(status_code=504, detail="WhatsApp service timed out. Please try again.")
+        raise HTTPException(status_code=502, detail="WhatsApp service is currently unavailable. Please try again.")
 
     except Exception as e:
         logger.error("gateway_connect_error", store_id=store_id, error=str(e))
         session.status = "failed"
         store.whatsapp_status = "failed"
         await db.commit()
-        raise HTTPException(status_code=502, detail=f"Gateway error: {str(e)}")
+        raise HTTPException(status_code=502, detail="WhatsApp service is currently unavailable. Please try again.")
 
 
 @router.get("/whatsapp/status", response_model=WhatsAppStatusResponse)
@@ -147,6 +187,7 @@ async def whatsapp_status(store_id: str, db: AsyncSession = Depends(get_db)):
         "status": session.status,
         "phone_number": session.phone_number,
         "qr_code": qr_code,
+        "pairing_code": session.pairing_code,
     }
 
 
@@ -176,6 +217,7 @@ async def disconnect_whatsapp(store_id: str, db: AsyncSession = Depends(get_db))
     if session:
         session.status = "disconnected"
         session.qr_code = None  # Clear stale QR
+        session.pairing_code = None # Clear stale pairing code
     store.whatsapp_status = "disconnected"
     await db.commit()
 
@@ -344,16 +386,32 @@ async def enable_ai(store_id: str, conversation_id: str, db: AsyncSession = Depe
 @router.get("/orders", response_model=list[OrderResponse])
 async def list_orders(store_id: str, db: AsyncSession = Depends(get_db)):
     await _get_store(store_id, db)
+    # Eager-load line items so the seller can see exactly which products were
+    # ordered. selectinload is required under async (lazy access would raise).
     result = await db.execute(
-        select(Order).where(Order.store_id == store_id)
+        select(Order)
+        .where(Order.store_id == store_id)
+        .options(selectinload(Order.items))
+        .order_by(Order.created_at.desc())
     )
     orders = result.scalars().all()
     return [
         OrderResponse(
             id=o.id, store_id=o.store_id, status=o.status,
             total_amount=o.total_amount, customer_name=o.customer_name,
-            customer_phone=o.customer_phone, payment_method=o.payment_method,
+            customer_phone=o.customer_phone,
+            customer_address=o.customer_address, customer_city=o.customer_city,
+            payment_method=o.payment_method,
             created_at=str(o.created_at),
+            items=[
+                OrderItemResponse(
+                    product_id=it.product_id, variant_id=it.variant_id,
+                    product_name=it.product_name,
+                    variant_description=it.variant_description,
+                    quantity=it.quantity, unit_price=it.unit_price,
+                    line_total=it.unit_price * it.quantity,
+                ) for it in o.items
+            ],
         ) for o in orders
     ]
 

@@ -1,7 +1,13 @@
 const { GoogleGenAI } = require('@google/genai');
 const config = require('./config');
 const { createLogger, format, transports } = require('winston');
-const sizeOf = require('image-size');
+// image-size v1 exported the function directly; v2 exposes it as a named
+// `imageSize` export. Resolve either shape so real images are measured
+// correctly at runtime (test mocks provide the bare function).
+const _imageSizeModule = require('image-size');
+const sizeOf = typeof _imageSizeModule === 'function'
+  ? _imageSizeModule
+  : _imageSizeModule.imageSize;
 
 const logger = createLogger({
   level: 'info',
