@@ -5,6 +5,15 @@ os.environ["AI_PROVIDER"] = "mock"
 import asyncio
 import pytest
 import pytest_asyncio
+
+# The internal/demo endpoints are rate-limited per client IP in production. In the
+# test suite every request comes from 127.0.0.1, so multi-turn conversation tests
+# would trip the shared per-minute cap and fail non-deterministically. No test
+# asserts rate-limiting, so disable the limiters for the whole suite.
+from app.routers.internal import limiter as _internal_limiter
+from app.routers.demo import limiter as _demo_limiter
+_internal_limiter.enabled = False
+_demo_limiter.enabled = False
 from app.database import init_db, create_tables, drop_tables
 from app.models import (
     Store, Product, ProductAlias, ProductVariant, StorePolicy
