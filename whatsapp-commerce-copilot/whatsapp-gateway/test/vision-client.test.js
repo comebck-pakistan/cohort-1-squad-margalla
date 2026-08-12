@@ -171,6 +171,63 @@ test('analyzeImage: rejects unsafe content', async () => {
   }
 });
 
+// Regression: image-size v2 exposes the sizer as a named `imageSize` export
+// (v1 exported the function directly). vision-client must resolve either shape,
+// otherwise every real image fails with "sizeOf is not a function". This test
+// uses the REAL image-size module (only config + GoogleGenAI are mocked).
+test('analyzeImage: measures a real image with the actual image-size module', async () => {
+  delete require.cache[require.resolve('../src/vision-client')];
+  delete require.cache[require.resolve('../src/config')];
+  delete require.cache[require.resolve('@google/genai')];
+  delete require.cache[require.resolve('image-size')];
+
+  require.cache[require.resolve('../src/config')] = {
+    id: require.resolve('../src/config'),
+    filename: require.resolve('../src/config'),
+    loaded: true,
+    exports: {
+      visionModel: 'gemini-2.5-flash',
+      maxImageBytes: 1000000,
+      maxImagePixels: 25000000,
+      visionTimeoutMs: 5000,
+      geminiApiKey: 'test',
+    },
+  };
+
+  const generateContentMock = mock.fn(async () => ({
+    text: JSON.stringify({
+      description: 'A tiny test image', text_ocr: '', attributes: ['test'],
+      confidence: 0.9, safety_status: 'safe',
+    }),
+  }));
+  require.cache[require.resolve('@google/genai')] = {
+    id: require.resolve('@google/genai'),
+    filename: require.resolve('@google/genai'),
+    loaded: true,
+    exports: { GoogleGenAI: class { constructor() { this.models = { generateContent: generateContentMock }; } } },
+  };
+
+  // A real 1x1 PNG — image-size must actually parse its dimensions.
+  const pngBuffer = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+    'base64',
+  );
+
+  try {
+    const visionClient = require('../src/vision-client');
+    const result = await visionClient.analyzeImage({
+      buffer: pngBuffer, mimeType: 'image/png', fileName: 'tiny.png', caption: '',
+    });
+    assert.equal(result.description, 'A tiny test image');
+    assert.equal(generateContentMock.mock.calls.length, 1);
+  } finally {
+    delete require.cache[require.resolve('../src/vision-client')];
+    delete require.cache[require.resolve('../src/config')];
+    delete require.cache[require.resolve('@google/genai')];
+    delete require.cache[require.resolve('image-size')];
+  }
+});
+
 test('analyzeImage: throws on timeout', async () => {
   const { visionClient, generateContentMock, mockConfig, cleanup } = setupMocks();
   mockConfig.visionTimeoutMs = 100;

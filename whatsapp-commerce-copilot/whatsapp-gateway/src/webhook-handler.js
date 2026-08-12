@@ -25,6 +25,9 @@ const gatewayStartedAtSeconds = Math.floor(Date.now() / 1000);
 const VOICE_FALLBACK_MESSAGE =
   "Sorry, I couldn't understand that voice message. Please send it again or type your request.";
 
+const IMAGE_FALLBACK_MESSAGE =
+  "I couldn't read that image. Please resend it as a clear JPG, PNG, or WebP image.";
+
 /**
  * Map Evolution API connection states to the backend's session status enum.
  * Backend enum: disconnected, initializing, waiting_for_qr, authenticated, connected, reconnecting, failed
@@ -61,8 +64,14 @@ function extractStoreId(payload) {
 
 /**
  * Report session status to the backend.
+ * @param {string} storeId
+ * @param {string} status
+ * @param {string|null} phoneNumber
+ * @param {string|null} error — safe error reason (never secrets/PII)
+ * @param {string|null} qrCode
+ * @param {string|null} pairingCode — null clears pairing_code on backend
  */
-async function reportStatus(storeId, status, phoneNumber = null, error = null, qrCode = null) {
+async function reportStatus(storeId, status, phoneNumber = null, error = null, qrCode = null, pairingCode = undefined) {
   try {
     const payload = {
       store_id: storeId,
@@ -73,6 +82,10 @@ async function reportStatus(storeId, status, phoneNumber = null, error = null, q
     // Include QR code when available (e.g. from QRCODE_UPDATED webhook)
     if (qrCode !== null) {
       payload.qr_code = qrCode;
+    }
+    // Include pairing_code lifecycle updates — null clears it on the backend.
+    if (pairingCode !== undefined) {
+      payload.pairing_code = pairingCode;
     }
     await axios.post(`${config.backendUrl}/internal/whatsapp/session-events`, payload, {
       headers: { 'X-Internal-Token': config.internalToken },
@@ -107,6 +120,11 @@ async function handleQRCodeUpdated(payload) {
 /**
  * Handle CONNECTION_UPDATE event.
  * Maps state and reports to backend.
+ *
+ * Pairing lifecycle:
+ *   - "close" after pairing attempt → report as "failed" (not just "disconnected")
+ *     so dashboard stops showing dead pairing code.
+ *   - Clear pairing_code on all terminal states.
  */
 async function handleConnectionUpdate(payload) {
   const storeId = extractStoreId(payload);
@@ -115,15 +133,44 @@ async function handleConnectionUpdate(payload) {
   const connectionState = payload.data?.connection || payload.data?.state;
   if (!connectionState) return;
 
-  const mappedStatus = mapConnectionState(connectionState);
-  logger.info({ msg: 'Connection update', storeId, evolutionState: connectionState, mappedStatus });
+  let mappedStatus = mapConnectionState(connectionState);
 
-  // Clear QR cache when connected or disconnected
-  if (mappedStatus === 'connected' || mappedStatus === 'disconnected') {
+  // Detect close with error indicators that signal a failed pairing attempt
+  // (428/515/"Connection Closed") — report as 'failed' so UI stops showing dead code.
+  const disconnectReason = payload.data?.disconnectionObject?.description
+    || payload.data?.lastDisconnect?.error?.message
+    || '';
+  const statusCode = payload.data?.disconnectionObject?.statusCode
+    || payload.data?.lastDisconnect?.error?.output?.statusCode
+    || 0;
+
+  if (mappedStatus === 'disconnected' && (statusCode === 428 || statusCode === 515 || /Connection Closed|Precondition Required/i.test(disconnectReason))) {
+    mappedStatus = 'failed';
+  }
+
+  // Build safe error string for backend (no secrets/PII)
+  const safeError = mappedStatus === 'failed' && statusCode
+    ? `disconnect_${statusCode}`
+    : null;
+
+  logger.info({
+    msg: 'Connection update',
+    storeId,
+    evolutionState: connectionState,
+    mappedStatus,
+    statusCode: statusCode || undefined,
+  });
+
+  // Clear QR and pairing code cache on terminal states
+  if (mappedStatus === 'connected' || mappedStatus === 'disconnected' || mappedStatus === 'failed') {
     qrCache.delete(storeId);
   }
 
-  await reportStatus(storeId, mappedStatus);
+  // Report with pairing_code=null to clear it on terminal states.
+  const clearPairing = (mappedStatus === 'connected' || mappedStatus === 'disconnected' || mappedStatus === 'failed')
+    ? null : undefined;
+
+  await reportStatus(storeId, mappedStatus, null, safeError, null, clearPairing);
 }
 
 /**
@@ -174,18 +221,28 @@ function extractTextContent(message) {
 /**
  * Forward message to backend and send reply back to customer.
  * Shared by text and audio paths to avoid code duplication.
+ *
+ * Timing instrumentation: logs elapsed ms for each pipeline stage
+ * with whatsapp_message_id as correlation key. Never logs message
+ * content, phone numbers, base64 data, pairing codes, or API keys.
  */
-async function forwardAndReply(storeId, customerNumber, messageText, messageType, whatsappMessageId) {
+async function forwardAndReply(storeId, customerNumber, messageText, messageType, whatsappMessageId, extraFields = {}) {
+  const t0 = Date.now();
+
   const res = await axios.post(`${config.backendUrl}/internal/whatsapp/messages`, {
     store_id: storeId,
     customer_number: customerNumber,
     message: messageText,
     message_type: messageType,
     whatsapp_message_id: whatsappMessageId || null,
+    ...extraFields,
   }, {
     headers: { 'X-Internal-Token': config.internalToken },
     timeout: 30000,
   });
+
+  const backendDoneAt = Date.now();
+  const backendMs = backendDoneAt - t0;
 
   // If backend returns a reply and it's not a human-mode-active marker, send it back
   if (res.data?.message && res.data.message !== '[AI disabled - human mode active]') {
@@ -194,6 +251,8 @@ async function forwardAndReply(storeId, customerNumber, messageText, messageType
     const matchStatus = res.data.matched_product_id 
       ? (res.data.needs_clarification ? 'ambiguous_match' : 'matched_product')
       : 'no_match';
+
+    const sendStart = Date.now();
 
     if (res.data.image_url) {
       try {
@@ -222,6 +281,29 @@ async function forwardAndReply(storeId, customerNumber, messageText, messageType
       });
       await evolutionClient.sendText(storeId, customerNumber, res.data.message);
     }
+
+    const sendDoneAt = Date.now();
+
+    // Timing summary — never includes message content, phone, or secrets
+    logger.info({
+      msg: 'Pipeline timing',
+      storeId,
+      messageId: whatsappMessageId,
+      backendMs,
+      sendMs: sendDoneAt - sendStart,
+      totalMs: sendDoneAt - t0,
+      messageType,
+      matchStatus,
+    });
+  } else {
+    logger.info({
+      msg: 'Pipeline timing (no reply)',
+      storeId,
+      messageId: whatsappMessageId,
+      backendMs,
+      totalMs: Date.now() - t0,
+      messageType,
+    });
   }
 
   return res;
@@ -296,7 +378,115 @@ async function processAudioMessage(storeId, data, customerNumber, whatsappMessag
   }
 }
 
+/**
+ * Bound and sanitize vision output before forwarding to the backend.
+ * All vision output is untrusted descriptive data — never instructions.
+ * Applies strict length/count limits and clamps confidence to [0, 1].
+ */
+function sanitizeVisionResult(result, caption) {
+  const clampStr = (value, max) =>
+    typeof value === 'string' ? value.slice(0, max) : '';
+
+  const rawAttrs = Array.isArray(result?.attributes) ? result.attributes : [];
+  const attributes = rawAttrs
+    .filter((a) => typeof a === 'string' && a.trim())
+    .slice(0, 20)
+    .map((a) => a.trim().slice(0, 60));
+
+  let confidence = Number(result?.confidence);
+  if (!Number.isFinite(confidence)) confidence = 0;
+  confidence = Math.max(0, Math.min(1, confidence));
+
+  return {
+    vision_description: clampStr(result?.description, 1000),
+    vision_text_ocr: clampStr(result?.text_ocr, 1000),
+    vision_attributes: attributes,
+    vision_confidence: confidence,
+    original_caption: clampStr(caption, 1000),
+  };
+}
+
+/**
+ * Process an inbound image message: download → validate → vision-analyze →
+ * forward grounded visual context to the backend for catalog matching.
+ *
+ * Never falls through to caption-only generic text processing. On any
+ * download/validation/vision failure the customer receives an honest fallback
+ * and no catalog guess is made. Never logs media buffers or base64 data.
+ */
+async function processImageMessage(storeId, data, customerNumber, whatsappMessageId) {
+  const evolutionClient = require('./evolution-client');
+  const visionClient = require('./vision-client');
+
+  const caption = data.message?.imageMessage?.caption || '';
+
+  try {
+    logger.info({ msg: 'Processing image message', storeId, messageId: whatsappMessageId });
+
+    // Step 1: Download the actual image (webhook base64 is disabled by design).
+    let media;
+    try {
+      media = await evolutionClient.downloadMediaMessage(storeId, data);
+    } catch (downloadErr) {
+      logger.error({ msg: 'Image download failed', storeId, messageId: whatsappMessageId, error: downloadErr.message });
+      await evolutionClient.sendText(storeId, customerNumber, IMAGE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 2: Validate this is actually an image.
+    if (!media.mimeType || !media.mimeType.startsWith('image/')) {
+      logger.warn({ msg: 'Unsupported image MIME type', storeId, messageId: whatsappMessageId, mimeType: media.mimeType });
+      await evolutionClient.sendText(storeId, customerNumber, IMAGE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 3: Analyze with the vision client (validates size/dimensions/safety).
+    let result;
+    try {
+      result = await visionClient.analyzeImage({
+        buffer: media.buffer,
+        mimeType: media.mimeType,
+        fileName: media.fileName,
+        caption,
+      });
+    } catch (visionErr) {
+      logger.error({ msg: 'Vision analysis failed', storeId, messageId: whatsappMessageId, error: visionErr.message });
+      await evolutionClient.sendText(storeId, customerNumber, IMAGE_FALLBACK_MESSAGE);
+      return;
+    }
+
+    // Step 4: Forward bounded, structured visual context to the backend.
+    const visionFields = sanitizeVisionResult(result, caption);
+    logger.info({
+      msg: 'Forwarding image vision context to backend',
+      storeId,
+      messageId: whatsappMessageId,
+      confidence: visionFields.vision_confidence,
+      attributeCount: visionFields.vision_attributes.length,
+      hasCaption: !!caption,
+    });
+    await forwardAndReply(
+      storeId,
+      customerNumber,
+      caption || 'Customer sent a product image.',
+      'image',
+      whatsappMessageId,
+      visionFields,
+    );
+  } catch (err) {
+    // Catch-all: never leak internal errors, never fall back to catalog guessing.
+    logger.error({ msg: 'Image message processing error', storeId, messageId: whatsappMessageId, error: err.message });
+    try {
+      await evolutionClient.sendText(storeId, customerNumber, IMAGE_FALLBACK_MESSAGE);
+    } catch (sendErr) {
+      logger.error({ msg: 'Failed to send image fallback', storeId, error: sendErr.message });
+    }
+  }
+}
+
 async function handleSingleMessage(storeId, data) {
+  const webhookReceivedAt = Date.now();
+
   if (!data || !data.key) return;
 
   // Skip messages sent by us
@@ -322,11 +512,21 @@ async function handleSingleMessage(storeId, data) {
     return;
   }
 
+  const validationDoneAt = Date.now();
   const msgType = detectMessageType(data.message);
 
   // Handle audio/voice messages via transcription pipeline
   if (msgType === 'audio') {
     await processAudioMessage(storeId, data, customerNumber, whatsappMessageId);
+    markProcessed(whatsappMessageId);
+    return;
+  }
+
+  // Handle image messages via the vision pipeline (download → analyze → forward).
+  // Runs before the caption-empty check so captionless product photos are not
+  // skipped — they still download and analyze.
+  if (msgType === 'image') {
+    await processImageMessage(storeId, data, customerNumber, whatsappMessageId);
     markProcessed(whatsappMessageId);
     return;
   }
@@ -345,13 +545,19 @@ async function handleSingleMessage(storeId, data) {
     : msgType === 'document' ? 'document'
     : 'text';
 
-  logger.info({ msg: 'Message received', storeId, from: customerNumber, messageId: whatsappMessageId });
+  logger.info({
+    msg: 'Message received',
+    storeId,
+    messageId: whatsappMessageId,
+    messageType,
+    validationMs: validationDoneAt - webhookReceivedAt,
+  });
 
   try {
     await forwardAndReply(storeId, customerNumber, messageText, messageType, whatsappMessageId);
     markProcessed(whatsappMessageId);
   } catch (err) {
-    logger.error({ msg: 'Failed to forward message to backend', storeId, error: err.message });
+    logger.error({ msg: 'Failed to forward message to backend', storeId, messageId: whatsappMessageId, error: err.message });
   }
 }
 
@@ -476,10 +682,15 @@ module.exports = {
   getSkipReason,
   normalizeCustomerNumber,
   handleMessagesUpsert,
+  handleConnectionUpdate,
+  reportStatus,
   detectMessageType,
   extractTextContent,
   processAudioMessage,
+  processImageMessage,
+  sanitizeVisionResult,
   forwardAndReply,
   VOICE_FALLBACK_MESSAGE,
+  IMAGE_FALLBACK_MESSAGE,
   _processedMessageIds: processedMessageIds,
 };

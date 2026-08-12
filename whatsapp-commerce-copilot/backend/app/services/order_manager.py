@@ -158,11 +158,15 @@ class OrderManager:
             customer_name=conversation.customer_name,
             customer_phone=conversation.customer_phone,
             customer_address=conversation.customer_address,
+            customer_city=conversation.requested_city,
             payment_method=conversation.payment_method,
         )
 
+        # Snapshot the exact product/variant ordered. Name and price are copied so
+        # the order stays accurate even if the seller later edits or removes the
+        # product. order_id is populated by the relationship cascade at flush —
+        # do not read order.id here (the PK default is only applied on INSERT).
         item = OrderItem(
-            order_id=order.id,
             product_id=product.id,
             variant_id=variant.id,
             product_name=product.name,

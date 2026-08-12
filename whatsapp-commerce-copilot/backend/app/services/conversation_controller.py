@@ -13,7 +13,11 @@ from app.models.conversation import Conversation
 from app.models.order import Order
 from app.models.handoff import HumanHandoff
 from app.models.product import Product, ProductVariant
+from app.models.category import Category
 from app.models.policy import StorePolicy
+
+# Number of products shown per category page (bounded to avoid message spam).
+CATEGORY_PAGE_SIZE = 5
 from app.services.ai_provider import AIRequestContext, KNOWN_INTENTS, get_ai_provider
 from app.services.conversation_manager import ConversationManager
 from app.services.entity_extractor import extract_entities
@@ -43,6 +47,7 @@ class ConversationController:
         store_language: str,
         store_id: str,
         customer_number: str,
+        vision: dict | None = None,
     ) -> ProcessedResponse:
         normalized = normalize_text(message)
         lang_detection = detect_language(message)
@@ -120,6 +125,19 @@ class ConversationController:
         # Flush to prevent asyncpg MissingGreenlet on subsequent db queries (autoflush)
         await db.flush()
 
+        # Seller-managed category browse flow: greeting → category menu, category
+        # selection → product page, pagination, and "back". Only runs for idle
+        # text conversations — never hijacks an active order or an image/vision
+        # query, and falls through to normal search for specific product text.
+        if vision is None and conversation.order_stage in ("BROWSING", "ORDER_CREATED"):
+            cat_response = await self._handle_category_flow(
+                db, conversation, message, normalized, intent, products,
+                response_lang, store_id, store_name, customer_number,
+            )
+            if cat_response is not None:
+                await db.flush()
+                return cat_response
+
         entity_dict = {
             "product_query": entities.product_query,
             "sku": entities.sku,
@@ -169,6 +187,15 @@ class ConversationController:
         ):
             product_query_override = llm_classification.product_query
 
+        # For inbound image messages, the visual analysis is the strongest signal
+        # (the LLM classification never sees the image). Build a bounded search
+        # query from caption + visual attributes + OCR so catalog matching is
+        # driven by what is actually in the picture, scoped to this store only.
+        if vision:
+            vision_query = self._build_vision_query(vision)
+            if vision_query:
+                product_query_override = vision_query
+
         response = self.processor.process(
             message=message,
             products=products,
@@ -194,6 +221,18 @@ class ConversationController:
         if order_response:
             response = order_response
 
+        # Image message with no catalog match: reply honestly with what was seen
+        # instead of a generic "not found" or an AI rephrase that could imply
+        # availability. Matches and clarifications keep the normal grounded flow.
+        if (
+            vision
+            and not response.matched_product_id
+            and not response.needs_clarification
+        ):
+            response.message = self._vision_no_match_message(vision, response_lang)
+            response.intent = "product_search"
+            return response
+
         response = await self._optional_ai_response(
             conversation, message, response, products, policies,
             store_name, response_lang
@@ -201,6 +240,385 @@ class ConversationController:
         if response.needs_human:
             await self._create_handoff(db, conversation, response, message)
         return response
+
+    # ------------------------------------------------------------------
+    # Seller-managed category browse flow
+    # ------------------------------------------------------------------
+
+    async def _handle_category_flow(
+        self, db, conversation, message, normalized, intent, products,
+        response_lang, store_id, store_name, customer_number,
+    ):
+        """Greeting → category menu; selection → product page; pagination; back.
+
+        Returns a ProcessedResponse to short-circuit, or None to fall through to
+        normal catalog search (so specific product text keeps working).
+        Categories always come from THIS store's active catalog — never hardcoded.
+        """
+        cats = (await db.execute(
+            select(Category)
+            .where(Category.store_id == store_id, Category.is_active == True)
+            .order_by(Category.display_order, Category.name)
+        )).scalars().all()
+
+        text = (normalized or "").strip()
+        snapshot = conversation.get_menu_snapshot()
+
+        # "Back to categories"
+        if self._is_back_command(text):
+            if cats:
+                return self._category_menu_response(conversation, cats, store_name, response_lang, store_id, customer_number)
+            return None
+
+        # Browsing a product page → pagination + numbered product selection.
+        # Pagination re-derives the source list from the snapshot scope so
+        # "More"/"Previous" work for both category pages and all-catalogue browse.
+        if snapshot and snapshot.get("kind") == "products":
+            nav = self._nav_command(text)
+            if nav in ("next", "prev"):
+                delta = CATEGORY_PAGE_SIZE if nav == "next" else -CATEGORY_PAGE_SIZE
+                source = self._snapshot_source(products, snapshot)
+                return self._render_products_page(
+                    conversation, source, snapshot.get("category_name", ""),
+                    snapshot.get("scope", "category"), snapshot.get("category_id"),
+                    max(0, snapshot.get("offset", 0) + delta),
+                    response_lang, store_id, customer_number)
+            sel = self._resolve_menu_selection(text, snapshot.get("items", []))
+            if sel:
+                detail = self._product_detail_response(products, sel["id"], conversation, response_lang, store_id, customer_number)
+                if detail is not None:
+                    return detail
+            # else: fall through — customer may have typed a product name
+
+        # Category selection against a shown category menu (number / ordinal / name)
+        if snapshot and snapshot.get("kind") == "categories":
+            sel = self._resolve_menu_selection(text, snapshot.get("items", []))
+            if sel:
+                return self._category_products_response(
+                    conversation, products, sel["id"], sel["name"], 0,
+                    response_lang, store_id, customer_number)
+
+        # Category selection by near-exact name ("lawn", "show lawn", "lawn dikhao")
+        cat = self._match_category_by_name(text, cats)
+        if cat:
+            return self._category_products_response(
+                conversation, products, cat.id, cat.name, 0,
+                response_lang, store_id, customer_number)
+
+        # Browse / "show me options/designs" → retrieve real products immediately.
+        # This is the fix for the questionnaire behaviour: once the customer asks
+        # to see what's available, never keep asking clarification.
+        if self._is_browse_request(text):
+            return await self._browse_response(
+                db, conversation, message, products, cats,
+                response_lang, store_id, store_name, customer_number)
+
+        # Greeting → show the store's category menu (only when categories exist)
+        if intent.intent == "greeting" and cats:
+            return self._category_menu_response(conversation, cats, store_name, response_lang, store_id, customer_number)
+
+        return None
+
+    @staticmethod
+    def _is_back_command(text: str) -> bool:
+        if text in {"back", "menu", "categories", "category", "go back", "wapas", "واپس"}:
+            return True
+        return "back to categor" in text or "categories dikha" in text
+
+    @staticmethod
+    def _nav_command(text: str) -> str | None:
+        if text in {"more", "next", "aur", "agay", "aage", "next page", "زیادہ", "aur dikhao"}:
+            return "next"
+        if text in {"previous", "prev", "pichay", "peeche", "pichla"}:
+            return "prev"
+        return None
+
+    @staticmethod
+    def _clean_for_category(text: str) -> str:
+        """Strip common lead/trail verbs so 'show lawn'/'lawn dikhao' → 'lawn'."""
+        t = f" {text} "
+        for w in (" show me ", " show ", " dikhao ", " dikha do ", " dikhaye ", " chahiye ",
+                  " chaie ", " hai ", " available ", " do you have ", " mujhe ", " i want ",
+                  " i need ", " please ", " ka ", " ke ", " ki "):
+            t = t.replace(w, " ")
+        return " ".join(t.split()).strip()
+
+    def _match_category_by_name(self, text: str, cats) -> Category | None:
+        """Match only on a near-exact category name so product queries fall through."""
+        cleaned = self._clean_for_category(text)
+        if not cleaned:
+            return None
+        for c in cats:
+            if cleaned == c.name.lower().strip():
+                return c
+        return None
+
+    _ORDINALS = {
+        "first": 1, "1st": 1, "pehla": 1, "pehli": 1,
+        "second": 2, "2nd": 2, "doosra": 2, "dusra": 2, "dosra": 2, "doosri": 2,
+        "third": 3, "3rd": 3, "teesra": 3, "tesra": 3,
+        "fourth": 4, "4th": 4, "chotha": 4, "chautha": 4,
+        "fifth": 5, "5th": 5, "panchwa": 5, "paanchwa": 5,
+    }
+
+    def _resolve_menu_selection(self, text: str, items: list) -> dict | None:
+        """Resolve a numbered/ordinal/name reply against the exact shown menu."""
+        if not items:
+            return None
+        idx = None
+        m = re.fullmatch(r"(\d+)", text)
+        if m:
+            idx = int(m.group(1))
+        else:
+            for word, n in self._ORDINALS.items():
+                if re.search(rf"\b{re.escape(word)}\b", text):
+                    idx = n
+                    break
+        if idx is not None:
+            return next((it for it in items if it.get("n") == idx), None)
+        # name equality (cleaned) against the shown item names
+        cleaned = self._clean_for_category(text)
+        if cleaned:
+            for it in items:
+                if cleaned == (it.get("name") or "").lower().strip():
+                    return it
+        return None
+
+    def _category_menu_response(self, conversation, cats, store_name, response_lang, store_id, customer_number):
+        items = [{"n": i, "id": c.id, "name": c.name} for i, c in enumerate(cats, 1)]
+        conversation.set_menu_snapshot({"kind": "categories", "items": items})
+        conversation.browse_category_id = None
+        conversation.browse_offset = 0
+        ur = response_lang in ("ur", "roman_urdu")
+        header = (f"{store_name} mein khush aamdeed! Aap kya dhoond rahe hain?" if ur
+                  else f"Welcome to {store_name}! What are you looking for?")
+        footer = ("Category ka naam ya number bhejein." if ur
+                  else "Reply with a category name or number.")
+        lines = [header, ""] + [f"{it['n']}. {it['name']}" for it in items] + ["", footer]
+        return ProcessedResponse(
+            message="\n".join(lines), intent="category_menu", confidence=1.0,
+            store_id=store_id, customer_number=customer_number,
+        )
+
+    @staticmethod
+    def _display_price(product) -> float:
+        prices = [v.price for v in product.variants if v.is_active and v.price]
+        return min(prices) if prices else (product.base_price or 0.0)
+
+    # --- Browse / show-products intent -------------------------------------
+
+    # Trigger words that mean "show me what you have". A message is a browse
+    # request only when it is made up ENTIRELY of these triggers + filler words,
+    # so specific product queries ("show me white cotton kurta") fall through.
+    _BROWSE_TRIGGERS = {
+        "available", "avail", "designs", "design", "dizain", "options", "option",
+        "products", "product", "collection", "collections", "articles", "article",
+        "dikhao", "dikhaen", "dikhaein", "dikha", "dekhao", "dekhna", "dikhado",
+        "bhejo", "bhej", "bhejdo", "show", "stock", "more", "next", "cheezain", "cheezen",
+    }
+    _BROWSE_FILLER = {
+        "kya", "kia", "koi", "kuch", "jo", "joh", "woh", "wo", "mujhe", "mjhe", "muje",
+        "hai", "hain", "ha", "hn", "hon", "ho", "aapka", "aap", "apka", "ap", "apke",
+        "aapke", "apkay", "pass", "paas", "pas", "k", "ka", "ke", "ki", "do", "dein",
+        "den", "de", "dedo", "main", "mein", "me", "select", "karun", "karoon", "karne",
+        "karna", "karo", "karein", "kar", "liye", "lie", "taake", "take", "please", "plz",
+        "i", "want", "to", "what", "you", "have", "us", "some", "the", "a", "all", "sara",
+        "saare", "saari", "sari", "poora", "poori", "batao", "bta", "bataen", "yr", "yaar",
+        "aur", "zara", "zra", "thora", "thori", "abhi", "ne", "please",
+    }
+    _SCRIPT_BROWSE = ("دکھا", "ڈیزائن", "دیزائن", "آپشن", "دستیاب", "کلیکشن", "پروڈکٹ")
+
+    @classmethod
+    def _is_browse_request(cls, text: str) -> bool:
+        if any(s in text for s in cls._SCRIPT_BROWSE):
+            return True
+        tokens = re.findall(r"[a-z]+", text.lower())
+        if not tokens or not any(t in cls._BROWSE_TRIGGERS for t in tokens):
+            return False
+        residual = [t for t in tokens if t not in cls._BROWSE_TRIGGERS and t not in cls._BROWSE_FILLER]
+        return len(residual) == 0
+
+    @staticmethod
+    def _available_products(products):
+        """Active products, preferring those in stock; falls back to active-but-
+        out-of-stock so we still show something truthfully (marked out of stock)."""
+        active = [p for p in products if p.is_active]
+        in_stock = [p for p in active if any(v.is_active and v.stock > 0 for v in p.variants)]
+        return in_stock if in_stock else active
+
+    def _snapshot_source(self, products, snapshot):
+        """Reconstruct the product list a snapshot paginates over, by scope."""
+        if snapshot.get("scope") == "all":
+            return self._available_products(products)
+        cid = snapshot.get("category_id")
+        return [p for p in products if getattr(p, "category_id", None) == cid and p.is_active]
+
+    async def _browse_response(self, db, conversation, message, products, cats,
+                               response_lang, store_id, store_name, customer_number):
+        """Deterministic response to a browse request: send real products.
+
+        Empty catalogue → truthful message + owner notification. Large catalogue
+        with categories → categories first (avoid flooding). Otherwise a bounded
+        page of real, available products.
+        """
+        available = self._available_products(products)
+        if not available:
+            return await self._empty_catalog_response(db, conversation, message, response_lang, store_id, customer_number)
+        if cats and len(available) > CATEGORY_PAGE_SIZE * 3:
+            return self._category_menu_response(conversation, cats, store_name, response_lang, store_id, customer_number)
+        return self._render_products_page(
+            conversation, available, None, "all", None, 0,
+            response_lang, store_id, customer_number)
+
+    async def _empty_catalog_response(self, db, conversation, message, response_lang, store_id, customer_number):
+        ur = response_lang in ("ur", "roman_urdu")
+        msg = ("Mazrat, is waqt catalogue mein koi active product available nahi hai. "
+               "Main shop owner ko notify kar raha hun." if ur else
+               "Sorry, there are no active products in the catalogue right now. "
+               "I'm notifying the shop owner.")
+        # Notify the owner (pending handoff) WITHOUT disabling the AI, so the bot
+        # keeps working once products are added.
+        existing = await db.execute(
+            select(HumanHandoff).where(
+                HumanHandoff.conversation_id == conversation.id,
+                HumanHandoff.status.in_(["pending", "active"]),
+            ).limit(1)
+        )
+        if not existing.scalar_one_or_none():
+            db.add(HumanHandoff(
+                conversation_id=conversation.id, store_id=store_id,
+                reason="empty_catalog",
+                summary="Customer asked to browse but the catalogue is empty.",
+                status="pending",
+            ))
+        return ProcessedResponse(
+            message=msg, intent="browse_catalog", confidence=1.0,
+            needs_human=True, escalation_reason="empty_catalog",
+            store_id=store_id, customer_number=customer_number,
+        )
+
+    def _product_line(self, n, product, ur):
+        """One grounded product entry — real DB values only."""
+        price = self._display_price(product)
+        sizes, colors = [], []
+        for v in product.variants:
+            if not v.is_active:
+                continue
+            if v.color and v.color not in colors:
+                colors.append(v.color)
+            if v.size and v.size not in sizes:
+                sizes.append(v.size)
+        in_stock = any(v.is_active and v.stock > 0 for v in product.variants)
+        bits = []
+        if price:
+            bits.append(f"Rs. {price:,.0f}")
+        if colors:
+            bits.append("Colors: " + ", ".join(colors))
+        if sizes:
+            bits.append("Sizes: " + ", ".join(sizes))
+        bits.append(("Stock mein" if in_stock else "Stock khatam") if ur else ("In stock" if in_stock else "Out of stock"))
+        return f"{n}. {product.name}\n" + " | ".join(bits)
+
+    def _render_products_page(self, conversation, source, label, scope, category_id,
+                              offset, response_lang, store_id, customer_number):
+        """Render one bounded page of real products and snapshot the exact menu.
+
+        `scope` is "category" or "all"; the snapshot stores it so pagination and
+        numbered replies resolve against precisely what was shown.
+        """
+        total = len(source)
+        ur = response_lang in ("ur", "roman_urdu")
+
+        if total == 0:
+            conversation.set_menu_snapshot(None)
+            conversation.browse_category_id = category_id
+            name = label or ("this category" if not ur else "is category")
+            msg = (f"Is waqt '{name}' mein koi product available nahi hai."
+                   if ur else f"There are no products in '{name}' right now.")
+            return ProcessedResponse(message=msg, intent="category_products", confidence=1.0,
+                                     store_id=store_id, customer_number=customer_number)
+
+        max_offset = ((total - 1) // CATEGORY_PAGE_SIZE) * CATEGORY_PAGE_SIZE
+        offset = max(0, min(offset, max_offset))
+        page = source[offset:offset + CATEGORY_PAGE_SIZE]
+        items = [{"n": offset + i + 1, "id": p.id, "name": p.name} for i, p in enumerate(page)]
+        from datetime import datetime
+        conversation.set_menu_snapshot({
+            "kind": "products", "scope": scope, "store_id": store_id,
+            "category_id": category_id, "category_name": label,
+            "page": offset // CATEGORY_PAGE_SIZE, "offset": offset, "total": total,
+            "items": items, "ts": datetime.utcnow().isoformat(),
+        })
+        conversation.browse_category_id = category_id
+        conversation.browse_offset = offset
+        conversation.add_recently_shown_products([p.id for p in page])
+
+        if scope == "all":
+            intro = "Ye designs abhi available hain:" if ur else "Here's what's available right now:"
+        else:
+            intro = f"{label}:"
+        lines = [intro, ""]
+        for it, p in zip(items, page):
+            lines.append(self._product_line(it["n"], p, ur))
+
+        shown_upto = offset + len(page)
+        nav = ["Number bhej kar product dekhein" if ur else "Reply with a number to view a product"]
+        if shown_upto < total:
+            nav.append("'More'")
+        if offset > 0:
+            nav.append("'Previous'")
+        nav.append("'Back' categories ke liye" if ur else "'Back' for categories")
+        lines += ["", ", ".join(nav) + "."]
+        return ProcessedResponse(
+            message="\n".join(lines),
+            intent="browse_catalog" if scope == "all" else "category_products",
+            confidence=1.0,
+            sources=[f"catalog:category:{category_id}"] if category_id else ["catalog:browse"],
+            store_id=store_id, customer_number=customer_number,
+        )
+
+    def _category_products_response(self, conversation, products, category_id, category_name,
+                                    offset, response_lang, store_id, customer_number):
+        """Thin wrapper: render a single category's active products as a page."""
+        in_cat = [p for p in products if getattr(p, "category_id", None) == category_id and p.is_active]
+        return self._render_products_page(
+            conversation, in_cat, category_name, "category", category_id,
+            offset, response_lang, store_id, customer_number)
+
+    def _product_detail_response(self, products, pid, conversation, response_lang, store_id, customer_number):
+        product = next((p for p in products if p.id == pid), None)
+        if not product:
+            return None
+        conversation.current_product_id = product.id
+        conversation.add_recently_shown_products([product.id])
+        active_vars = [v for v in product.variants if v.is_active]
+        sizes, colors = [], []
+        for v in active_vars:
+            if v.size and v.size not in sizes:
+                sizes.append(v.size)
+            if v.color and v.color not in colors:
+                colors.append(v.color)
+        prices = [v.price for v in active_vars if v.price]
+        in_stock = any(v.stock > 0 for v in active_vars)
+
+        lines = [f"*{product.name}*"]
+        if prices:
+            lo, hi = min(prices), max(prices)
+            lines.append(f"Price: Rs. {lo:,.0f}" + (f" – Rs. {hi:,.0f}" if hi != lo else ""))
+        elif product.base_price:
+            lines.append(f"Price: Rs. {product.base_price:,.0f}")
+        if sizes:
+            lines.append("Available sizes: " + ", ".join(sizes))
+        if colors:
+            lines.append("Available colors: " + ", ".join(colors))
+        lines.append("Stock: " + ("Available" if in_stock else "Out of stock"))
+        return ProcessedResponse(
+            message="\n".join(lines), intent="product_search", confidence=1.0,
+            matched_product_id=product.id,
+            matched_variant_id=active_vars[0].id if len(active_vars) == 1 else None,
+            image_url=product.image_url, sources=[f"catalog:product:{product.id}"],
+            store_id=store_id, customer_number=customer_number,
+        )
 
     async def _create_handoff(self, db, conversation, response, customer_message):
         result = await db.execute(
@@ -516,6 +934,65 @@ class ConversationController:
             escalation_reason=ai.escalation_reason,
             store_id=response.store_id,
             customer_number=response.customer_number,
+        )
+
+    @staticmethod
+    def _build_vision_query(vision: dict) -> str | None:
+        """Build a bounded catalog-search query from visual analysis.
+
+        Combines the customer's caption, detected visual attributes (colour,
+        category, style, material, branding) and any OCR text. Falls back to the
+        description only when nothing else is present. All vision output is
+        untrusted descriptive data — used purely as search terms, never as
+        instructions. The result is length-capped so it cannot dominate matching.
+        """
+        parts: list[str] = []
+        caption = (vision.get("original_caption") or "").strip()
+        if caption:
+            parts.append(caption)
+        for attr in (vision.get("attributes") or []):
+            if isinstance(attr, str) and attr.strip():
+                parts.append(attr.strip())
+        ocr = (vision.get("text_ocr") or "").strip()
+        if ocr:
+            parts.append(ocr)
+        if not parts:
+            description = (vision.get("description") or "").strip()
+            if description:
+                # Use only the first few words of a verbose description.
+                parts.append(" ".join(description.split()[:8]))
+        query = " ".join(parts).strip()
+        return query[:200] if query else None
+
+    @staticmethod
+    def _vision_no_match_message(vision: dict, store_language: str) -> str:
+        """Honest, vision-grounded reply when no catalog item matches the image.
+
+        References what was actually seen without claiming availability, and
+        offers to look for similar items. Never invents products.
+        """
+        description = (vision.get("description") or "").strip()
+        # Keep the snippet short and single-line for a clean WhatsApp reply.
+        snippet = " ".join(description.split())[:120]
+        if store_language in ("ur", "roman_urdu"):
+            if snippet:
+                return (
+                    f"Mujhe tasveer mein {snippet} nazar aa raha hai, lekin is store "
+                    "ke catalog mein iska exact match nahi mila. Kya aap milte-julte "
+                    "options dekhna chahenge?"
+                )
+            return (
+                "Mujhe is store ke catalog mein is tasveer ka exact match nahi mila. "
+                "Kya aap milte-julte options dekhna chahenge?"
+            )
+        if snippet:
+            return (
+                f"I can see {snippet}, but I couldn't find an exact match in this "
+                "store's catalog. Would you like to see similar items?"
+            )
+        return (
+            "I couldn't find an exact match for this image in this store's catalog. "
+            "Would you like to see similar items?"
         )
 
     @staticmethod

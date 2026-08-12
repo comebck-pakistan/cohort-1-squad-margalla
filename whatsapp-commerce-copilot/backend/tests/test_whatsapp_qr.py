@@ -435,3 +435,144 @@ async def test_failed_status_clears_qr(async_client: AsyncClient, store, db_sess
     session = result.scalar_one()
     assert session.qr_code is None
     assert session.status == "failed"
+
+
+# ── Test: Formatted phone is normalized to digits before forwarding ───────────
+
+@pytest.mark.asyncio
+async def test_connect_normalizes_phone_number(async_client: AsyncClient, store, db_session):
+    """A formatted phone number is normalized to digits before hitting the gateway."""
+    captured = {}
+
+    def _capture_post(url, **kwargs):
+        captured["json"] = kwargs.get("json")
+        return _make_response(200, {
+            "status": "initializing",
+            "storeId": "test-qr-store",
+            "pairing_code": "ABCD1234",
+        })
+
+    with patch("app.routers.whatsapp.httpx.AsyncClient") as MockClient:
+        mock_instance = AsyncMock()
+        mock_instance.post.side_effect = _capture_post
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_instance
+
+        resp = await async_client.post(
+            "/api/stores/test-qr-store/whatsapp/connect",
+            json={"phone_number": "+92 300-1234567"},
+        )
+
+    assert resp.status_code == 200
+    # Only normalized digits are forwarded to the gateway.
+    assert captured["json"] == {"phoneNumber": "923001234567"}
+    data = resp.json()
+    assert data["pairing_code"] == "ABCD1234"
+
+
+# ── Test: Invalid phone returns 422 and never calls the gateway ───────────────
+
+@pytest.mark.asyncio
+async def test_connect_invalid_phone_returns_422(async_client: AsyncClient, store, db_session):
+    """An invalid phone number is rejected with 422 without contacting the gateway."""
+    with patch("app.routers.whatsapp.httpx.AsyncClient") as MockClient:
+        mock_instance = AsyncMock()
+        mock_instance.post = AsyncMock()
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_instance
+
+        resp = await async_client.post(
+            "/api/stores/test-qr-store/whatsapp/connect",
+            json={"phone_number": "92abc123"},
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "923001234567" in detail  # the safe example number
+        # Gateway must never be called for invalid input.
+        mock_instance.post.assert_not_called()
+
+
+# ── Test: QR request without a phone still works ──────────────────────────────
+
+@pytest.mark.asyncio
+async def test_connect_qr_without_phone_still_works(async_client: AsyncClient, store, db_session):
+    """QR mode (no phone number) is unaffected by phone validation."""
+    captured = {}
+
+    def _capture_post(url, **kwargs):
+        captured["json"] = kwargs.get("json")
+        return _make_response(200, {
+            "status": "initializing",
+            "storeId": "test-qr-store",
+            "qr_code": "data:image/png;base64,QR_NO_PHONE",
+        })
+
+    with patch("app.routers.whatsapp.httpx.AsyncClient") as MockClient:
+        mock_instance = AsyncMock()
+        mock_instance.post.side_effect = _capture_post
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_instance
+
+        resp = await async_client.post("/api/stores/test-qr-store/whatsapp/connect")
+
+    assert resp.status_code == 200
+    assert resp.json()["qr_code"] == "data:image/png;base64,QR_NO_PHONE"
+    # No phoneNumber field is forwarded in QR mode.
+    assert captured["json"] == {}
+
+
+# ── Test: Gateway 400 maps to a safe client response (no URL leak) ────────────
+
+@pytest.mark.asyncio
+async def test_gateway_400_maps_to_safe_response(async_client: AsyncClient, store, db_session):
+    """An upstream gateway 400 is mapped to 422 with a safe detail, never a raw URL."""
+    error_response = _make_response(400, {"error": "invalid_phone_number"})
+
+    with patch("app.routers.whatsapp.httpx.AsyncClient") as MockClient:
+        mock_instance = AsyncMock()
+        mock_instance.post.return_value = error_response
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_instance
+
+        resp = await async_client.post(
+            "/api/stores/test-qr-store/whatsapp/connect",
+            json={"phone_number": "923001234567"},
+        )
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert "923001234567" in detail  # safe example
+    # The internal gateway URL / MDN link must never reach the client.
+    assert "gateway:" not in detail
+    assert "http://" not in detail
+    assert "https://" not in detail
+
+
+# ── Test: Generic gateway error is mapped to a safe 502 (no URL leak) ─────────
+
+@pytest.mark.asyncio
+async def test_gateway_error_does_not_leak_internal_url(async_client: AsyncClient, store, db_session):
+    """A raised HTTPStatusError (e.g. 500) becomes a safe 502 without leaking internals."""
+    error_response = _make_response(500, {"error": "boom"})
+
+    with patch("app.routers.whatsapp.httpx.AsyncClient") as MockClient:
+        mock_instance = AsyncMock()
+        mock_instance.post.return_value = error_response
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_instance
+
+        resp = await async_client.post(
+            "/api/stores/test-qr-store/whatsapp/connect",
+            json={"phone_number": "923001234567"},
+        )
+
+    assert resp.status_code == 502
+    detail = resp.json()["detail"]
+    assert "http://" not in detail and "https://" not in detail
+    assert "gateway:" not in detail

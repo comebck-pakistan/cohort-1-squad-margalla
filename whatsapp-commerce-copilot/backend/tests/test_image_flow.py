@@ -547,6 +547,147 @@ async def test_shared_image_not_deleted_on_replace(async_client, store, db_sessi
     assert os.path.exists(old_filepath)
 
 
+# ===================================================================
+# Inbound image vision → catalog matching
+# ===================================================================
+
+async def _seed_product(db_session, store_id, name, price=1000.0, stock=5):
+    from app.models.product import Product, ProductVariant
+    p = Product(store_id=store_id, name=name, base_price=price, is_active=True)
+    db_session.add(p)
+    await db_session.flush()
+    db_session.add(ProductVariant(product_id=p.id, price=price, stock=stock))
+    await db_session.commit()
+    return p
+
+
+def _internal_headers():
+    from app.config import get_settings
+    return {"X-Internal-Token": get_settings().INTERNAL_SERVICE_TOKEN}
+
+
+@pytest.mark.asyncio
+async def test_image_vision_matches_catalog_product(async_client, store, db_session):
+    """Vision context (caption + attributes) should drive a grounded catalog match."""
+    product = await _seed_product(db_session, store.id, "Red Kurta")
+
+    res = await async_client.post(
+        "/internal/whatsapp/messages",
+        json={
+            "store_id": store.id,
+            "customer_number": "923001110001",
+            "message": "red kurta",
+            "message_type": "image",
+            "whatsapp_message_id": "vis-match-1",
+            "vision_description": "A red traditional kurta for men",
+            "vision_text_ocr": "",
+            "vision_attributes": ["red", "kurta", "traditional"],
+            "vision_confidence": 0.9,
+            "original_caption": "red kurta",
+        },
+        headers=_internal_headers(),
+    )
+    assert res.status_code == 200
+    data = res.json()
+    # Grounded: matched the real DB product, not a fabricated one.
+    assert data["matched_product_id"] == product.id
+
+
+@pytest.mark.asyncio
+async def test_image_vision_no_match_returns_honest_message(async_client, store, db_session):
+    """No catalog match → honest, vision-grounded reply that references what was seen
+    and never fabricates a product or an image."""
+    await _seed_product(db_session, store.id, "Red Kurta")
+
+    res = await async_client.post(
+        "/internal/whatsapp/messages",
+        json={
+            "store_id": store.id,
+            "customer_number": "923001110002",
+            "message": "Customer sent a product image.",
+            "message_type": "image",
+            "whatsapp_message_id": "vis-nomatch-1",
+            "vision_description": "A blue leather handbag with a gold clasp",
+            "vision_text_ocr": "",
+            "vision_attributes": ["blue", "handbag", "leather"],
+            "vision_confidence": 0.88,
+            "original_caption": "",
+        },
+        headers=_internal_headers(),
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["matched_product_id"] is None
+    assert data["image_url"] is None
+    msg = data["message"].lower()
+    # References the visual evidence and offers similar items (EN or Roman Urdu).
+    assert "handbag" in msg
+    assert ("exact match" in msg) or ("nahi mila" in msg)
+
+
+@pytest.mark.asyncio
+async def test_captionless_image_still_searches_catalog(async_client, store, db_session):
+    """A captionless image must still download+analyze and search — not be skipped.
+    Here the gateway forwards the 'Customer sent a product image.' placeholder plus
+    vision attributes, which must drive catalog matching."""
+    product = await _seed_product(db_session, store.id, "Green Shirt")
+
+    res = await async_client.post(
+        "/internal/whatsapp/messages",
+        json={
+            "store_id": store.id,
+            "customer_number": "923001110003",
+            "message": "Customer sent a product image.",
+            "message_type": "image",
+            "whatsapp_message_id": "vis-captionless-1",
+            "vision_description": "A green cotton shirt",
+            "vision_text_ocr": "",
+            "vision_attributes": ["green", "shirt"],
+            "vision_confidence": 0.91,
+            "original_caption": "",
+        },
+        headers=_internal_headers(),
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["matched_product_id"] == product.id
+
+
+@pytest.mark.asyncio
+async def test_image_vision_respects_store_isolation(async_client, store, db_session):
+    """Vision matching must never reach into another store's catalog."""
+    from app.models.store import Store
+    other = Store(id=f"other-{uuid.uuid4().hex[:8]}", business_name="Other Store",
+                  owner_name="Owner2", ai_enabled=True)
+    db_session.add(other)
+    await db_session.commit()
+    # The matching product exists ONLY in the other store.
+    await _seed_product(db_session, other.id, "Blue Jeans")
+
+    # Send the image to `store` (which has no jeans).
+    res = await async_client.post(
+        "/internal/whatsapp/messages",
+        json={
+            "store_id": store.id,
+            "customer_number": "923001110004",
+            "message": "Customer sent a product image.",
+            "message_type": "image",
+            "whatsapp_message_id": "vis-isolation-1",
+            "vision_description": "A pair of blue denim jeans",
+            "vision_text_ocr": "",
+            "vision_attributes": ["blue", "jeans", "denim"],
+            "vision_confidence": 0.9,
+            "original_caption": "",
+        },
+        headers=_internal_headers(),
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["store_id"] == store.id
+    # Never returns the other store's product.
+    assert data["matched_product_id"] is None
+
+
 @pytest.mark.asyncio
 async def test_shared_image_not_deleted_on_image_removal(async_client, store, db_session):
     """When removing image from a product, shared file is kept if another product uses it."""

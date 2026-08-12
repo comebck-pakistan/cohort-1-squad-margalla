@@ -43,6 +43,7 @@ class ProductResponse(BaseModel):
     store_id: str
     name: str
     category: Optional[str] = None
+    category_id: Optional[str] = None
     sku: Optional[str] = None
     description: Optional[str] = None
     base_price: Optional[float] = None
@@ -51,6 +52,39 @@ class ProductResponse(BaseModel):
     variants: list[VariantResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+# --- Category schemas ---
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=5000)
+    display_order: int = 0
+    is_active: bool = True
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=5000)
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class CategoryResponse(BaseModel):
+    id: str
+    store_id: str
+    name: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    display_order: int
+    is_active: bool
+    product_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class MoveProductRequest(BaseModel):
+    # None → move product to "Uncategorized".
+    category_id: Optional[str] = None
 
 
 # --- Demo message schemas ---
@@ -77,17 +111,21 @@ class DemoMessageResponse(BaseModel):
     store_id: str
 
 
-# --- WhatsApp schemas ---
+class ConnectWhatsAppRequest(BaseModel):
+    phone_number: Optional[str] = None
+
 class WhatsAppStatusResponse(BaseModel):
     store_id: str
     status: str
     phone_number: Optional[str] = None
     qr_code: Optional[str] = None
+    pairing_code: Optional[str] = None
 
 
 class WhatsAppQRResponse(BaseModel):
     store_id: str
     qr_code: Optional[str] = None
+    pairing_code: Optional[str] = None
     status: str
 
 
@@ -98,6 +136,15 @@ class InternalMessageRequest(BaseModel):
     message: str
     message_type: str = "text"
     whatsapp_message_id: Optional[str] = None
+
+    # Optional visual context supplied by the gateway for inbound image messages.
+    # Untrusted descriptive data used only to assist catalog matching — never
+    # treated as instructions. Bounded/sanitized at the gateway boundary.
+    vision_description: Optional[str] = None
+    vision_text_ocr: Optional[str] = None
+    vision_attributes: Optional[list[str]] = None
+    vision_confidence: Optional[float] = None
+    original_caption: Optional[str] = None
 
 
 class InternalSendRequest(BaseModel):
@@ -112,6 +159,7 @@ class InternalSessionEvent(BaseModel):
     phone_number: Optional[str] = None
     error: Optional[str] = None
     qr_code: Optional[str] = None
+    pairing_code: Optional[str] = None
 
 
 # --- Conversation schemas ---
@@ -129,6 +177,23 @@ class ConversationResponse(BaseModel):
 
 
 # --- Order schemas ---
+class OrderItemResponse(BaseModel):
+    """A single line item in an order — the product that was actually ordered.
+
+    Fields are a snapshot taken at order time, so the record stays accurate even
+    if the seller later edits or deletes the product from the catalogue.
+    """
+    product_id: str
+    variant_id: Optional[str] = None
+    product_name: str
+    variant_description: Optional[str] = None
+    quantity: int
+    unit_price: float
+    line_total: float
+
+    model_config = {"from_attributes": True}
+
+
 class OrderResponse(BaseModel):
     id: str
     store_id: str
@@ -136,8 +201,11 @@ class OrderResponse(BaseModel):
     total_amount: float
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
+    customer_city: Optional[str] = None
     payment_method: Optional[str] = None
     created_at: str
+    items: list[OrderItemResponse] = []
 
     model_config = {"from_attributes": True}
 

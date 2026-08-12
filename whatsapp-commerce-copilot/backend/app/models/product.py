@@ -11,12 +11,17 @@ class Product(Base):
     __table_args__ = (
         Index("ix_products_store_id", "store_id"),
         Index("ix_products_sku", "store_id", "sku", unique=True),
+        Index("ix_products_category_id", "category_id"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     store_id: Mapped[str] = mapped_column(String(64), ForeignKey("stores.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Legacy free-text category label (kept for backward compatibility).
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Structured seller-managed category. Nullable → existing products stay valid
+    # as "uncategorized". FK to categories.id.
+    category_id: Mapped[str | None] = mapped_column(String(64), ForeignKey("categories.id"), nullable=True)
     sku: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     base_price: Mapped[float | None] = mapped_column(Float, nullable=True)

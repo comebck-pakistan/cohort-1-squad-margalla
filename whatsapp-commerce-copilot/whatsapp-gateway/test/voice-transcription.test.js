@@ -392,15 +392,19 @@ test('text message: still works unchanged', async () => {
   }
 });
 
-test('image caption: still works unchanged', async () => {
+test('image message: routes through vision pipeline, never caption-only fall-through', async () => {
+  // Regression: images must download + vision-analyze, not forward caption-only.
+  // This voice-suite mock returns an audio/ogg download, so the image is rejected
+  // as non-image and a fallback is sent — the key assertion is that it is NOT
+  // forwarded to the backend as a caption-only text message.
   const { webhookHandler, calls, cleanup } = setupMocks();
   try {
     const payload = makeCaptionPayload('image', 'what is this?');
     await webhookHandler.handleMessagesUpsert(payload);
 
-    assert.equal(calls.backendPost.length, 1);
-    assert.equal(calls.backendPost[0].data.message, 'what is this?');
-    assert.equal(calls.backendPost[0].data.message_type, 'image');
+    assert.equal(calls.downloadMedia.length, 1, 'image triggers a media download');
+    assert.equal(calls.backendPost.length, 0, 'no caption-only forward to backend');
+    assert.equal(calls.sendText.length, 1, 'honest fallback sent');
   } finally {
     cleanup();
   }

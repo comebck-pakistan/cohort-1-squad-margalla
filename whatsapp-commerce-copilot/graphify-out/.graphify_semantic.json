@@ -1,0 +1,343 @@
+{
+  "nodes": [
+    {
+      "id": "readme",
+      "label": "WhatsApp Commerce Copilot README",
+      "file_type": "document",
+      "source_file": "README.md"
+    },
+    {
+      "id": "docker_compose",
+      "label": "Docker Compose Configuration",
+      "file_type": "code",
+      "source_file": "docker-compose.yml"
+    },
+    {
+      "id": "agents_agents",
+      "label": "Always Active Skills",
+      "file_type": "document",
+      "source_file": ".agents/AGENTS.md"
+    },
+    {
+      "id": "agents_skills_caveman_skill",
+      "label": "Caveman Skill",
+      "file_type": "document",
+      "source_file": ".agents/skills/caveman/SKILL.md"
+    },
+    {
+      "id": "agents_skills_graphify_skill",
+      "label": "Graphify Skill",
+      "file_type": "document",
+      "source_file": ".agents/skills/graphify/SKILL.md"
+    },
+    {
+      "id": "backend_requirements",
+      "label": "Backend Dependencies",
+      "file_type": "code",
+      "source_file": "backend/requirements.txt"
+    },
+    {
+      "id": "dashboard_readme",
+      "label": "Dashboard README",
+      "file_type": "document",
+      "source_file": "dashboard/README.md"
+    },
+    {
+      "id": "dashboard_index",
+      "label": "Dashboard Entry Point",
+      "file_type": "code",
+      "source_file": "dashboard/index.html"
+    },
+    {
+      "id": "docs_ai_handoff",
+      "label": "AI Handoff Documentation",
+      "file_type": "document",
+      "source_file": "docs/AI_HANDOFF.md"
+    },
+    {
+      "id": "docs_ai_pipeline",
+      "label": "AI Pipeline Documentation",
+      "file_type": "document",
+      "source_file": "docs/AI_PIPELINE.md"
+    },
+    {
+      "id": "docs_api_reference",
+      "label": "API Reference",
+      "file_type": "document",
+      "source_file": "docs/API_REFERENCE.md"
+    },
+    {
+      "id": "docs_architecture",
+      "label": "System Architecture",
+      "file_type": "document",
+      "source_file": "docs/ARCHITECTURE.md"
+    },
+    {
+      "id": "docs_conversation_and_order_state",
+      "label": "Conversation and Order State",
+      "file_type": "document",
+      "source_file": "docs/CONVERSATION_AND_ORDER_STATE.md"
+    },
+    {
+      "id": "docs_current_status",
+      "label": "Current Project Status",
+      "file_type": "document",
+      "source_file": "docs/CURRENT_STATUS.md"
+    },
+    {
+      "id": "docs_database_schema",
+      "label": "Database Schema",
+      "file_type": "document",
+      "source_file": "docs/DATABASE_SCHEMA.md"
+    },
+    {
+      "id": "docs_decisions",
+      "label": "Design Decisions",
+      "file_type": "document",
+      "source_file": "docs/DECISIONS.md"
+    },
+    {
+      "id": "docs_next_steps",
+      "label": "Project Roadmap",
+      "file_type": "document",
+      "source_file": "docs/NEXT_STEPS.md"
+    },
+    {
+      "id": "docs_project_overview",
+      "label": "Project Overview",
+      "file_type": "document",
+      "source_file": "docs/PROJECT_OVERVIEW.md"
+    },
+    {
+      "id": "docs_security_and_limitations",
+      "label": "Security and Limitations",
+      "file_type": "document",
+      "source_file": "docs/SECURITY_AND_LIMITATIONS.md"
+    },
+    {
+      "id": "docs_setup_and_run",
+      "label": "Setup and Run Guide",
+      "file_type": "document",
+      "source_file": "docs/SETUP_AND_RUN.md"
+    },
+    {
+      "id": "docs_testing",
+      "label": "Testing Documentation",
+      "file_type": "document",
+      "source_file": "docs/TESTING.md"
+    },
+    {
+      "id": "docs_whatsapp_gateway",
+      "label": "WhatsApp Gateway Documentation",
+      "file_type": "document",
+      "source_file": "docs/WHATSAPP_GATEWAY.md"
+    },
+    {
+      "id": "dashboard_src_assets_hero",
+      "label": "Hero Image",
+      "file_type": "image",
+      "source_file": "dashboard/src/assets/hero.png"
+    },
+    {
+      "id": "backend_service",
+      "label": "Backend Service (FastAPI)",
+      "file_type": "concept",
+      "source_file": "docker-compose.yml"
+    },
+    {
+      "id": "gateway_service",
+      "label": "Gateway Service (Node.js)",
+      "file_type": "concept",
+      "source_file": "docker-compose.yml"
+    },
+    {
+      "id": "evolution_api_service",
+      "label": "Evolution API Service",
+      "file_type": "concept",
+      "source_file": "docker-compose.yml"
+    },
+    {
+      "id": "postgres_service",
+      "label": "PostgreSQL Database",
+      "file_type": "concept",
+      "source_file": "docker-compose.yml"
+    },
+    {
+      "id": "redis_service",
+      "label": "Redis Cache",
+      "file_type": "concept",
+      "source_file": "docker-compose.yml"
+    }
+  ],
+  "edges": [
+    {
+      "source": "readme",
+      "target": "docker_compose",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docker_compose",
+      "target": "backend_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docker_compose",
+      "target": "gateway_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docker_compose",
+      "target": "evolution_api_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docker_compose",
+      "target": "postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docker_compose",
+      "target": "redis_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "backend_service",
+      "target": "postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "gateway_service",
+      "target": "backend_service",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "gateway_service",
+      "target": "evolution_api_service",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "evolution_api_service",
+      "target": "postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "evolution_api_service",
+      "target": "redis_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docs_architecture",
+      "target": "backend_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docs_architecture",
+      "target": "gateway_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docs_architecture",
+      "target": "evolution_api_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docs_ai_pipeline",
+      "target": "backend_service",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9
+    },
+    {
+      "source": "docs_whatsapp_gateway",
+      "target": "gateway_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "docs_whatsapp_gateway",
+      "target": "evolution_api_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "dashboard_src_assets_hero",
+      "target": "dashboard_index",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8
+    },
+    {
+      "source": "agents_agents",
+      "target": "agents_skills_caveman_skill",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "agents_agents",
+      "target": "agents_skills_graphify_skill",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "core_services_flow",
+      "label": "Core Message Processing Flow",
+      "nodes": [
+        "backend_service",
+        "gateway_service",
+        "evolution_api_service"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/ARCHITECTURE.md"
+    },
+    {
+      "id": "data_persistence_layer",
+      "label": "Data Persistence Layer",
+      "nodes": [
+        "postgres_service",
+        "redis_service"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml"
+    }
+  ],
+  "input_tokens": 33037,
+  "output_tokens": 1664
+}

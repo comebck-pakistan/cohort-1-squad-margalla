@@ -132,8 +132,22 @@ class ResponseBuilder:
                     available_colors.append(variant.color)
             matched_variant = None
             
-        parts.append(f"Price: Rs. {base_price:,.0f}")
-        
+        # Show a price range when the relevant variants are priced differently,
+        # so the quote is accurate instead of pinning a single variant's price.
+        price_variants = (
+            match.matched_variants if match.matched_variants
+            else [v for v in product.variants if v.is_active]
+        )
+        priced = [v.price for v in price_variants if v.price]
+        if priced:
+            low, high = min(priced), max(priced)
+            if low != high:
+                parts.append(f"Price: Rs. {low:,.0f} – Rs. {high:,.0f}")
+            else:
+                parts.append(f"Price: Rs. {low:,.0f}")
+        else:
+            parts.append(f"Price: Rs. {base_price:,.0f}")
+
         if available_sizes:
             parts.append(f"Available sizes: {', '.join(available_sizes)}")
         if available_colors:

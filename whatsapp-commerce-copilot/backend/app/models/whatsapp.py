@@ -19,6 +19,7 @@ class WhatsAppSession(Base):
     phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     session_data_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)  # Base64 encoded QR
+    pairing_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
