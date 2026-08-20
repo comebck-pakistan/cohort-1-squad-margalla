@@ -138,6 +138,20 @@ class ConversationController:
                 await db.flush()
                 return cat_response
 
+        # While an order is being completed, a plain "yes" is a confirmation and
+        # nothing else. The LLM (and, for Urdu-script or emoji replies, the regex
+        # table) can otherwise label it `acknowledgement`/`order_status`/
+        # `alternatives`, which routes the turn away from the order state machine
+        # and leaves the order unrecorded. Explicit cancels are never touched, and
+        # this never applies while browsing, so ordinary chat is unaffected.
+        if (
+            conversation.order_stage not in ("BROWSING", "ORDER_CREATED")
+            and intent.intent != "order_cancel"
+            and self._is_affirmative(message)
+        ):
+            intent.intent = "order_confirmation"
+            intent.confidence = max(intent.confidence, 0.9)
+
         entity_dict = {
             "product_query": entities.product_query,
             "sku": entities.sku,
@@ -151,8 +165,15 @@ class ConversationController:
         )
 
         # Req 8: Explicit new-topic detection: clear old product context
-        # ONLY clear context if this is a product search/inquiry, NOT an order/transaction command
-        if resolved.get("is_new_topic") and intent.intent not in {"order_request", "order_confirmation", "order_status", "order_cancel", "greeting"}:
+        # ONLY clear context if this is a product search/inquiry, NOT an order/transaction command.
+        # Never clear it mid-order: replies like a name or an address look like a
+        # new topic, and dropping the product there strands the customer on
+        # "select a product first" so the order can never be completed.
+        if (
+            resolved.get("is_new_topic")
+            and intent.intent not in {"order_request", "order_confirmation", "order_status", "order_cancel", "greeting"}
+            and conversation.order_stage in ("BROWSING", "ORDER_CREATED")
+        ):
             self.conversations.clear_product_context(conversation)
 
         if (
@@ -766,7 +787,11 @@ class ConversationController:
             )
 
         if conversation.order_stage == "ORDER_CONFIRMATION":
-            if intent == "order_confirmation" and variant:
+            # The previous turn showed the summary and asked "confirm? (Yes/No)",
+            # so a plain affirmative IS the confirmation regardless of how the LLM
+            # labelled it. Without this the funnel stalls here and no order is
+            # ever written (the bug where orders never reached the dashboard).
+            if (intent == "order_confirmation" or self._is_affirmative(message)) and variant:
                 return await self._finalize_order(
                     db, conversation, product, variant, lang, response
                 )
@@ -1060,14 +1085,64 @@ class ConversationController:
             return None, None
         return name.title(), phone
 
-    @staticmethod
-    def _looks_like_address(message, intent):
-        if intent in {"order_confirmation", "acknowledgement"}:
+    @classmethod
+    def _looks_like_address(cls, message, intent):
+        """Is this reply the delivery address?
+
+        The guard exists so a bare "ok"/"haan" is never stored as an address, and
+        it is read deterministically from the text. It used to key off `intent`,
+        but a real address classifies as `unknown` (0.0) so the LLM's label always
+        won — and when the LLM called an address an `acknowledgement` the address
+        step stalled forever and the order was never completed.
+        """
+        if cls._is_affirmative(message):
             return False
         return len(message.strip()) >= 8 and (
             bool(re.search(r'\d|street|road|block|phase|sector|house|gali|mohalla', message, re.I))
             or "," in message
         )
+
+    # --- Deterministic "yes" reading -------------------------------------
+    # Used only on a turn that has just asked a Yes/No question. Kept
+    # deterministic on purpose: a real LLM commonly labels "haan"/"ok"/"👍" as a
+    # bare `acknowledgement` (a known intent at ~0.9) which outranks the
+    # deterministic `order_confirmation` (0.7) and overrides it — the customer
+    # then confirms forever and the order is never recorded. Urdu-script
+    # affirmatives are included because the bot replies in Urdu script live, so
+    # customers answer in it, and the regex intent table does not cover them.
+    _AFFIRM_EMOJI = ("👍", "✅", "👌", "🆗")
+    _AFFIRM_WORDS = {
+        "haan", "han", "hn", "haa", "ji", "jee", "yes", "yeah", "yep", "yup", "ya",
+        "ok", "okay", "okey", "theek", "thik", "teek", "sahi", "acha", "achha", "accha",
+        "confirm", "confirmed", "pakka", "final", "done", "order", "book", "bilkul",
+        "karo", "kardo", "krdo", "kardein", "lo",
+        "ہاں", "جی", "ٹھیک", "اوکے", "اوکی", "کنفرم", "بالکل", "کریں", "کردیں", "کرو",
+    }
+    _AFFIRM_FILLER = {
+        "hai", "hain", "he", "h", "please", "plz", "thanks", "thank", "you", "shukriya",
+        "bhai", "yaar", "yr", "ap", "aap", "sure", "g", "gi", "it", "this",
+        "that", "i", "me", "mein", "ab", "abhi", "place", "my", "kar", "do", "dein", "den",
+        "ہے", "کر", "دو", "دیں", "براہ", "کرم", "شکریہ", "میں",
+    }
+
+    @classmethod
+    def _is_affirmative(cls, message: str) -> bool:
+        """True when the reply is a plain yes and nothing else.
+
+        Every token must be an affirmative or filler word, so a question such as
+        "kya price hai?" or a correction can never be read as a confirmation.
+        """
+        raw = (message or "").strip()
+        if not raw:
+            return False
+        has_emoji = any(e in raw for e in cls._AFFIRM_EMOJI)
+        tokens = [tok.strip(".,!?۔:;-'\"") for tok in normalize_text(raw).lower().split()]
+        tokens = [tok for tok in tokens if tok]
+        if not tokens:
+            return has_emoji  # a bare 👍 normalizes to an empty string
+        if not all(tok in cls._AFFIRM_WORDS or tok in cls._AFFIRM_FILLER for tok in tokens):
+            return False
+        return has_emoji or any(tok in cls._AFFIRM_WORDS for tok in tokens)
 
     @staticmethod
     def _payment_method(normalized):
