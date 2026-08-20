@@ -171,6 +171,147 @@ async def test_negative_still_cancels_and_records_nothing(client, db_session):
     assert orders == []
 
 
+class AddressIsAcknowledgementProvider(MockAIProvider):
+    """Mimics the live LLM labelling a delivery address as `acknowledgement`.
+
+    A real address classifies as `unknown` (0.0) deterministically, so the LLM's
+    label always wins — and this label used to veto the address step, stalling
+    checkout forever.
+    """
+
+    async def classify_intent(self, message: str, store_language: str):
+        base = await super().classify_intent(message, store_language)
+        if any(w in message.lower() for w in ("house", "flat", "street", "block")):
+            return AIIntentSchema(
+                intent="acknowledgement", confidence=0.95,
+                input_language=base.input_language,
+                response_language=base.response_language,
+                language_confidence=base.language_confidence,
+            )
+        return base
+
+
+async def test_address_accepted_even_when_llm_calls_it_acknowledgement(
+    client, db_session, monkeypatch
+):
+    """The address step must read the text, not the LLM's label."""
+    monkeypatch.setattr(cc, "get_ai_provider", lambda: AddressIsAcknowledgementProvider())
+    s, _ = await _seed(db_session, name="Address Store")
+    cust = "923009996666"
+
+    await _msg(client, s.id, "Hi", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Order", cust)
+    await _msg(client, s.id, "white medium", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Ali Khan 03001234567", cust)
+    assert await _stage(db_session, s.id) == "CUSTOMER_DETAILS_REQUIRED"
+
+    await _msg(client, s.id, "House 12, Gulberg, Lahore", cust)
+    assert await _stage(db_session, s.id) == "ADDRESS_REQUIRED", "address step stalled"
+
+    await _msg(client, s.id, "COD", cust)
+    await _msg(client, s.id, "haan", cust)
+    orders = (await db_session.execute(
+        select(Order).where(Order.store_id == s.id))).scalars().all()
+    assert len(orders) == 1
+    assert orders[0].customer_address == "House 12, Gulberg, Lahore"
+
+
+async def test_bare_ok_is_never_stored_as_the_address(client, db_session):
+    """The guard the intent check was protecting must still hold."""
+    s, _ = await _seed(db_session, name="Ok Store")
+    cust = "923009995555"
+    await _msg(client, s.id, "Hi", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Order", cust)
+    await _msg(client, s.id, "white medium", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Ali Khan 03001234567", cust)
+
+    await _msg(client, s.id, "ok", cust)   # not an address
+    assert await _stage(db_session, s.id) == "CUSTOMER_DETAILS_REQUIRED"
+    conv = (await db_session.execute(
+        select(Conversation).where(Conversation.store_id == s.id))).scalars().first()
+    assert not conv.customer_address
+
+
+class AddressLooksLikeProductProvider(MockAIProvider):
+    """Mimics the live LLM reading a free-text mid-order reply as a product query.
+
+    That sets `product_query`, which the follow-up resolver reads as a new topic —
+    and clearing the product mid-order strands the customer.
+    """
+
+    async def classify_intent(self, message: str, store_language: str):
+        base = await super().classify_intent(message, store_language)
+        if any(w in message.lower() for w in ("flat", "house", "askari", "khan")):
+            return AIIntentSchema(
+                intent="product_search", product_query=message.strip(), confidence=0.9,
+                input_language=base.input_language,
+                response_language=base.response_language,
+                language_confidence=base.language_confidence,
+            )
+        return base
+
+
+async def test_product_context_survives_mid_order_turns(client, db_session, monkeypatch):
+    """A name or address looks like a new topic; the product must not be dropped.
+
+    Reproduces a live derailment: the customer answered the size question with
+    something unusable, so the funnel stayed at PRODUCT_SELECTED, and the next
+    free-text replies were treated as a new topic. That cleared the product and
+    stranded them on "select a product first" — the order could never complete.
+    """
+    monkeypatch.setattr(cc, "get_ai_provider", lambda: AddressLooksLikeProductProvider())
+    # Multiple sizes, as with the live sneakers (40/42/44), so a reply of "1" is
+    # not a usable variant and the funnel legitimately stays put.
+    s = Store(business_name="Context Store", owner_name="O", preferred_language="en")
+    db_session.add(s)
+    await db_session.flush()
+    c = Category(store_id=s.id, name="Shoes", display_order=1, is_active=True)
+    db_session.add(c)
+    await db_session.flush()
+    prod = Product(store_id=s.id, name="Casual Black Sneakers", category_id=c.id,
+                   base_price=4500, is_active=True)
+    db_session.add(prod)
+    await db_session.flush()
+    for size in ("40", "42", "44"):
+        db_session.add(ProductVariant(product_id=prod.id, price=4500, stock=5,
+                                      color="black", size=size, is_active=True))
+    await db_session.flush()
+    await db_session.commit()
+
+    cust = "923009994444"
+    await _msg(client, s.id, "Hi", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Order", cust)
+    # no valid variant given → the funnel stays at PRODUCT_SELECTED
+    await _msg(client, s.id, "1", cust)
+    assert await _stage(db_session, s.id) == "PRODUCT_SELECTED"
+
+    for turn in ["Ali Khan 03001234567", "Flat 9, Askari 4, Karachi"]:
+        r = await _msg(client, s.id, turn, cust)
+        conv = (await db_session.execute(
+            select(Conversation).where(Conversation.store_id == s.id))).scalars().first()
+        assert conv.current_product_id == prod.id, f"product dropped after {turn!r}"
+        assert "select a product" not in r["message"].lower()
+
+    # the customer can still recover and complete the order
+    await _msg(client, s.id, "black 42", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Ali Khan 03001234567", cust)
+    await _msg(client, s.id, "House 12, Gulberg, Lahore", cust)
+    await _msg(client, s.id, "COD", cust)
+    await _msg(client, s.id, "haan", cust)
+    orders = (await db_session.execute(
+        select(Order).where(Order.store_id == s.id))).scalars().all()
+    assert len(orders) == 1
+
+
 async def test_acknowledgement_outside_order_flow_is_not_an_order(client, db_session):
     """A bare 'ok' while browsing must never create an order."""
     s, _ = await _seed(db_session, name="Browse Store")

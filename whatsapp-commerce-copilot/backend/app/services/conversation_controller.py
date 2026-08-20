@@ -165,8 +165,15 @@ class ConversationController:
         )
 
         # Req 8: Explicit new-topic detection: clear old product context
-        # ONLY clear context if this is a product search/inquiry, NOT an order/transaction command
-        if resolved.get("is_new_topic") and intent.intent not in {"order_request", "order_confirmation", "order_status", "order_cancel", "greeting"}:
+        # ONLY clear context if this is a product search/inquiry, NOT an order/transaction command.
+        # Never clear it mid-order: replies like a name or an address look like a
+        # new topic, and dropping the product there strands the customer on
+        # "select a product first" so the order can never be completed.
+        if (
+            resolved.get("is_new_topic")
+            and intent.intent not in {"order_request", "order_confirmation", "order_status", "order_cancel", "greeting"}
+            and conversation.order_stage in ("BROWSING", "ORDER_CREATED")
+        ):
             self.conversations.clear_product_context(conversation)
 
         if (
@@ -1078,9 +1085,17 @@ class ConversationController:
             return None, None
         return name.title(), phone
 
-    @staticmethod
-    def _looks_like_address(message, intent):
-        if intent in {"order_confirmation", "acknowledgement"}:
+    @classmethod
+    def _looks_like_address(cls, message, intent):
+        """Is this reply the delivery address?
+
+        The guard exists so a bare "ok"/"haan" is never stored as an address, and
+        it is read deterministically from the text. It used to key off `intent`,
+        but a real address classifies as `unknown` (0.0) so the LLM's label always
+        won — and when the LLM called an address an `acknowledgement` the address
+        step stalled forever and the order was never completed.
+        """
+        if cls._is_affirmative(message):
             return False
         return len(message.strip()) >= 8 and (
             bool(re.search(r'\d|street|road|block|phase|sector|house|gali|mohalla', message, re.I))
