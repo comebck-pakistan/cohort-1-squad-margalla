@@ -1,32 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { ShoppingBag, RefreshCw } from 'lucide-react';
+
+// Orders arrive over WhatsApp while the seller is looking at this screen, so the
+// list refreshes on its own instead of only on mount.
+const REFRESH_MS = 15000;
 
 const OrdersView = ({ storeId }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [storeName, setStoreName] = useState(storeId === 'demo-store-shoes' ? 'StepUp Footwear' : 'Noor Fashion House');
+  // Ignore a slow response that lands after the seller switched stores.
+  const activeStore = useRef(storeId);
+
+  const fetchOrders = useCallback(async ({ showSpinner = true } = {}) => {
+    const requestedStore = storeId;
+    try {
+      if (showSpinner) setLoading(true);
+      const res = await axios.get(`${API_URL}/stores/${requestedStore}/orders`);
+      if (activeStore.current !== requestedStore) return;
+      setOrders(res.data);
+    } catch (err) {
+      console.error('Failed to load orders', err);
+    } finally {
+      if (activeStore.current === requestedStore && showSpinner) setLoading(false);
+    }
+  }, [storeId]);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        const res = await axios.get(`${API_URL}/stores/${storeId}/orders`);
-        setOrders(res.data);
-      } catch (err) {
-        console.error('Failed to load orders', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+    activeStore.current = storeId;
+    setOrders([]);
+
     // Quick store name lookup for the empty state
     if (storeId === 'demo-store-shoes') setStoreName('StepUp Footwear');
     else setStoreName('Noor Fashion House');
-    
+
     fetchOrders();
-  }, [storeId]);
+    const timer = setInterval(() => fetchOrders({ showSpinner: false }), REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [storeId, fetchOrders]);
 
   return (
     <div style={{ flex: 1, padding: '0 2.5rem 2.5rem', display: 'flex', flexDirection: 'column' }}>
@@ -67,7 +80,7 @@ const OrdersView = ({ storeId }) => {
               There are currently no active or historical orders for {storeName}. Once customers interact via WhatsApp, their orders will appear here.
             </p>
             
-            <button className="btn btn-primary" style={{ 
+            <button className="btn btn-primary" onClick={() => fetchOrders()} style={{
               padding: '0.6rem 1.25rem',
               fontWeight: 600,
               boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)'
@@ -77,11 +90,25 @@ const OrdersView = ({ storeId }) => {
           </div>
         ) : (
           <div style={{ width: '100%', height: '100%', padding: '1.5rem', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                {orders.length} {orders.length === 1 ? 'order' : 'orders'}
+              </span>
+              <button className="btn" onClick={() => fetchOrders()} aria-label="Refresh orders" style={{
+                padding: '0.4rem 0.9rem', fontSize: '0.8125rem', fontWeight: 600,
+                border: '1px solid var(--border-color)', borderRadius: '8px',
+                background: 'var(--bg-panel-hover)', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+              }}>
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Order ID</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Customer</th>
+                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Items</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payment</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
@@ -95,6 +122,14 @@ const OrdersView = ({ storeId }) => {
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{order.customer_name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{order.customer_phone}</div>
+                    </td>
+                    <td style={{ padding: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      {(order.items || []).length === 0 ? '—' : (order.items || []).map((it, i) => (
+                        <div key={i}>
+                          <span style={{ color: 'var(--text-primary)' }}>{it.product_name}</span>
+                          {it.variant_description ? ` (${it.variant_description})` : ''} × {it.quantity}
+                        </div>
+                      ))}
                     </td>
                     <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>Rs. {order.total_amount.toLocaleString()}</td>
                     <td style={{ padding: '1rem', fontSize: '0.875rem' }}>
