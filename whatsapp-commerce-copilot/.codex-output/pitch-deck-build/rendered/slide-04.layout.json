@@ -1,0 +1,1582 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/16oyuy",
+    "id": "16oyuy",
+    "slide": 4,
+    "layoutId": "456436e3-e85c-4f61-8d01-0cf3929bd997",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "ad078918-a7e4-46c3-bf0b-7dd137ff4e94",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7F8F6",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "456436e3-e85c-4f61-8d01-0cf3929bd997",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "ad078918-a7e4-46c3-bf0b-7dd137ff4e94",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "ad078918-a7e4-46c3-bf0b-7dd137ff4e94",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hw3ytsfi",
+      "id": "1",
+      "bbox": [
+        72,
+        40,
+        350,
+        24
+      ],
+      "geometry": "rect",
+      "text": "THE SOLUTION",
+      "textPreview": "THE SOLUTION",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#075E54",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "THE SOLUTION"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "THE SOLUTION",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#075E54",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "THE SOLUTION",
+              "fontSize": 13,
+              "color": "#075E54",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u9szydg7",
+      "id": "2",
+      "name": "title",
+      "bbox": [
+        72,
+        70,
+        1110,
+        62
+      ],
+      "geometry": "rect",
+      "text": "WhatsApp stays familiar. Commerce becomes structured.",
+      "textPreview": "WhatsApp stays familiar. Commerce becomes structured.",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "WhatsApp stays familiar. Commerce becomes structured."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "WhatsApp stays familiar. Commerce becomes structured.",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "WhatsApp stays familiar. Commerce becomes structured.",
+              "fontSize": 38,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fa1grixc",
+      "id": "3",
+      "bbox": [
+        1170,
+        45,
+        38,
+        24
+      ],
+      "geometry": "rect",
+      "text": "04",
+      "textPreview": "04",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "04"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "04",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5F6B64",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "04",
+              "fontSize": 13,
+              "color": "#5F6B64",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/s7ahwny1",
+      "id": "4",
+      "bbox": [
+        72,
+        137,
+        1136,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#D9E0DB",
+      "lineColor": "#D9E0DB",
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t8jypsfm",
+      "id": "5",
+      "bbox": [
+        72,
+        170,
+        340,
+        430
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#101A15",
+      "lineColor": "#101A15",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/65szudgv",
+      "id": "6",
+      "bbox": [
+        82,
+        182,
+        320,
+        406
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#EEF3EF",
+      "lineColor": "#EEF3EF",
+      "lineWidth": 1
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/761gnixg",
+      "id": "7",
+      "bbox": [
+        202,
+        188,
+        80,
+        16
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#101A15",
+      "lineColor": "#101A15",
+      "lineWidth": 1
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/c3eh87e5",
+      "id": "8",
+      "bbox": [
+        98,
+        202,
+        286,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Customer",
+      "textPreview": "Customer",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Customer"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Customer",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#5F6B64",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Customer",
+              "fontSize": 14,
+              "color": "#5F6B64",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d4ni1cfq",
+      "id": "9",
+      "bbox": [
+        100,
+        255,
+        250,
+        68
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#FFFFFF",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/50fmlcr2",
+      "id": "10",
+      "bbox": [
+        112,
+        262,
+        226,
+        54
+      ],
+      "geometry": "rect",
+      "text": "Black sneakers size 42 available hain?",
+      "textPreview": "Black sneakers size 42 available hain?",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Black sneakers size 42"
+          },
+          {
+            "index": 2,
+            "text": "available hain?"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Black sneakers size 42 available hain?",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#17211C",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Black sneakers size 42 available hain?",
+              "fontSize": 16,
+              "color": "#17211C",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4z6ls7ah",
+      "id": "11",
+      "bbox": [
+        134,
+        340,
+        245,
+        94
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#25D366",
+      "lineColor": "#25D366",
+      "lineWidth": 1
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3yd4j29c",
+      "id": "12",
+      "bbox": [
+        146,
+        347,
+        221,
+        80
+      ],
+      "geometry": "rect",
+      "text": "Yes — Navy/Black, size 42 is in stock. Rs. 4,800. Order karna hai?",
+      "textPreview": "Yes — Navy/Black, size 42 is in stock. Rs. 4,800. Order karna hai?",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Yes — Navy/Black, size 42"
+          },
+          {
+            "index": 2,
+            "text": "is in stock. Rs. 4,800. Order"
+          },
+          {
+            "index": 3,
+            "text": "karna hai?"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Yes — Navy/Black, size 42 is in stock. Rs. 4,800. Order karna hai?",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#17211C",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Yes — Navy/Black, size 42 is in stock. Rs. 4,800. Order karna hai?",
+              "fontSize": 16,
+              "color": "#17211C",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ix43qhsr",
+      "id": "13",
+      "bbox": [
+        100,
+        458,
+        170,
+        55
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#FFFFFF",
+      "lineWidth": 1
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hcvmhcb6",
+      "id": "14",
+      "bbox": [
+        112,
+        465,
+        146,
+        41
+      ],
+      "geometry": "rect",
+      "text": "2 pairs. COD.",
+      "textPreview": "2 pairs. COD.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "2 pairs. COD."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "2 pairs. COD.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#17211C",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "2 pairs. COD.",
+              "fontSize": 16,
+              "color": "#17211C",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gbmlo7al",
+      "id": "15",
+      "bbox": [
+        72,
+        625,
+        340,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Customer-facing assistant",
+      "textPreview": "Customer-facing assistant",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#075E54",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Customer-facing assistant"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Customer-facing assistant",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#075E54",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Customer-facing assistant",
+              "fontSize": 18,
+              "color": "#075E54",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vad4f2t0",
+      "id": "16",
+      "bbox": [
+        470,
+        170,
+        738,
+        430
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E0DB",
+      "lineWidth": 1
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u943mxsf",
+      "id": "17",
+      "bbox": [
+        505,
+        200,
+        250,
+        24
+      ],
+      "geometry": "rect",
+      "text": "MERCHANT CONTROL",
+      "textPreview": "MERCHANT CONTROL",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#6C4CF1",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MERCHANT CONTROL"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MERCHANT CONTROL",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#6C4CF1",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MERCHANT CONTROL",
+              "fontSize": 14,
+              "color": "#6C4CF1",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/18zmtwra",
+      "id": "18",
+      "bbox": [
+        505,
+        235,
+        625,
+        42
+      ],
+      "geometry": "rect",
+      "text": "One dashboard for the work behind the chat",
+      "textPreview": "One dashboard for the work behind the chat",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 30,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "One dashboard for the work behind the"
+          },
+          {
+            "index": 2,
+            "text": "chat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "One dashboard for the work behind the chat",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "One dashboard for the work behind the chat",
+              "fontSize": 30,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/07ql0rap",
+      "id": "19",
+      "bbox": [
+        510,
+        311,
+        22,
+        22
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#25D366",
+      "lineColor": "#25D366",
+      "lineWidth": 1
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/knyxczmd",
+      "id": "20",
+      "bbox": [
+        548,
+        305,
+        155,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Catalog",
+      "textPreview": "Catalog",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Catalog"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Catalog",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Catalog",
+              "fontSize": 19,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lorel43y",
+      "id": "21",
+      "bbox": [
+        710,
+        305,
+        425,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Products, variants, prices, stock",
+      "textPreview": "Products, variants, prices, stock",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Products, variants, prices, stock"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Products, variants, prices, stock",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Products, variants, prices, stock",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ylgfap47",
+      "id": "22",
+      "bbox": [
+        510,
+        375,
+        22,
+        22
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#EEEAFE",
+      "lineColor": "#EEEAFE",
+      "lineWidth": 1
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jmpwjuls",
+      "id": "23",
+      "bbox": [
+        548,
+        369,
+        155,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Conversations",
+      "textPreview": "Conversations",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Conversations"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Conversations",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Conversations",
+              "fontSize": 19,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wjyx8zm1",
+      "id": "24",
+      "bbox": [
+        710,
+        369,
+        425,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Context, AI/human mode, history",
+      "textPreview": "Context, AI/human mode, history",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Context, AI/human mode, history"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Context, AI/human mode, history",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Context, AI/human mode, history",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xk7eh43m",
+      "id": "25",
+      "bbox": [
+        510,
+        439,
+        22,
+        22
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#EEEAFE",
+      "lineColor": "#EEEAFE",
+      "lineWidth": 1
+    },
+    {
+      "order": 26,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ahgf6p4b",
+      "id": "26",
+      "bbox": [
+        548,
+        433,
+        155,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Orders",
+      "textPreview": "Orders",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Orders"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Orders",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Orders",
+              "fontSize": 19,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 27,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bipwfulg",
+      "id": "27",
+      "bbox": [
+        710,
+        433,
+        425,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Structured records and status",
+      "textPreview": "Structured records and status",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Structured records and status"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Structured records and status",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Structured records and status",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 28,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ofex4fm5",
+      "id": "28",
+      "bbox": [
+        510,
+        503,
+        22,
+        22
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#EEEAFE",
+      "lineColor": "#EEEAFE",
+      "lineWidth": 1
+    },
+    {
+      "order": 29,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9g7edk3q",
+      "id": "29",
+      "bbox": [
+        548,
+        497,
+        155,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Connections",
+      "textPreview": "Connections",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Connections"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Connections",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Connections",
+              "fontSize": 19,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 30,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rq5gnapc",
+      "id": "30",
+      "bbox": [
+        710,
+        497,
+        425,
+        34
+      ],
+      "geometry": "rect",
+      "text": "QR or phone-number pairing",
+      "textPreview": "QR or phone-number pairing",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "QR or phone-number pairing"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "QR or phone-number pairing",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "QR or phone-number pairing",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 31,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qpwfe5or",
+      "id": "31",
+      "bbox": [
+        505,
+        563,
+        330,
+        34
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#E8F8EE",
+      "lineColor": "#E8F8EE",
+      "lineWidth": 1
+    },
+    {
+      "order": 32,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dsnypk7i",
+      "id": "32",
+      "bbox": [
+        515,
+        565,
+        310,
+        30
+      ],
+      "geometry": "rect",
+      "text": "Uses the merchant’s existing WhatsApp",
+      "textPreview": "Uses the merchant’s existing WhatsApp",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#075E54",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Uses the merchant’s existing WhatsApp"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Uses the merchant’s existing WhatsApp",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#075E54",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Uses the merchant’s existing WhatsApp",
+              "fontSize": 14,
+              "color": "#075E54",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 33,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/srexgf6x",
+      "id": "33",
+      "bbox": [
+        72,
+        680,
+        400,
+        18
+      ],
+      "geometry": "rect",
+      "text": "WHATSAPP COMMERCE COPILOT",
+      "textPreview": "WHATSAPP COMMERCE COPILOT",
+      "resolvedFontSize": 11,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 11,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "WHATSAPP COMMERCE COPILOT"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "WHATSAPP COMMERCE COPILOT",
+          "resolvedTextStyle": {
+            "fontSize": 11,
+            "color": "#5F6B64",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "WHATSAPP COMMERCE COPILOT",
+              "fontSize": 11,
+              "color": "#5F6B64",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

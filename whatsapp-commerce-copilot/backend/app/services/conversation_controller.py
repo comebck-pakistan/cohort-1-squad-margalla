@@ -6,6 +6,8 @@ provider to phrase ambiguous results, and persists state through the caller's
 transaction.
 """
 import re
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,16 +20,19 @@ from app.models.policy import StorePolicy
 
 # Number of products shown per category page (bounded to avoid message spam).
 CATEGORY_PAGE_SIZE = 5
+# Number of product images sent in one gallery reply. WhatsApp treats a burst of
+# media as spam, so a colour's designs are paged like any other menu.
+MEDIA_PAGE_SIZE = 5
 from app.services.ai_provider import AIRequestContext, KNOWN_INTENTS, get_ai_provider
 from app.services.conversation_manager import ConversationManager
-from app.services.entity_extractor import extract_entities
+from app.services.entity_extractor import SIZE_NORMALIZE, extract_entities
 from app.services.i18n import t
 from app.services.intent_detector import detect_intent
 from app.services.language_detector import detect_language
 from app.services.message_processor import MessageProcessor
 from app.services.order_manager import OrderManager
 from app.services.response_builder import ProcessedResponse
-from app.services.text_normalizer import normalize_text
+from app.services.text_normalizer import normalize_color, normalize_text
 
 
 class ConversationController:
@@ -144,13 +149,25 @@ class ConversationController:
         # `alternatives`, which routes the turn away from the order state machine
         # and leaves the order unrecorded. Explicit cancels are never touched, and
         # this never applies while browsing, so ordinary chat is unaffected.
+        is_affirmative = self._is_affirmative(message)
         if (
-            conversation.order_stage not in ("BROWSING", "ORDER_CREATED")
-            and intent.intent != "order_cancel"
-            and self._is_affirmative(message)
+            intent.intent != "order_cancel"
+            and is_affirmative
+            and (
+                # mid-order: a plain yes can only mean "go ahead"
+                conversation.order_stage not in ("BROWSING", "ORDER_CREATED")
+                # or they are looking at a product and answered the buy prompt
+                or conversation.current_product_id
+            )
         ):
             intent.intent = "order_confirmation"
             intent.confidence = max(intent.confidence, 0.9)
+
+        # A "yes" is never a product name. Searching the catalogue for it produced
+        # the nonsense reply "we couldn't find 'confirmed' in our catalogue" when a
+        # customer answered a confirmation prompt.
+        if is_affirmative:
+            entities.product_query = None
 
         entity_dict = {
             "product_query": entities.product_query,
@@ -285,8 +302,16 @@ class ConversationController:
         text = (normalized or "").strip()
         snapshot = conversation.get_menu_snapshot()
 
-        # "Back to categories"
+        # "Back" steps up exactly one level of the guided flow:
+        # colour's designs → colour menu → category menu.
         if self._is_back_command(text):
+            if snapshot and snapshot.get("kind") == "color_products":
+                colors = self._category_colors(products, snapshot.get("category_id"))
+                if len(colors) > 1:
+                    return self._category_colors_response(
+                        conversation, snapshot.get("category_id"),
+                        snapshot.get("category_name"), colors,
+                        response_lang, store_id, customer_number)
             if cats:
                 return self._category_menu_response(conversation, cats, store_name, response_lang, store_id, customer_number)
             return None
@@ -307,6 +332,40 @@ class ConversationController:
             sel = self._resolve_menu_selection(text, snapshot.get("items", []))
             if sel:
                 detail = self._product_detail_response(products, sel["id"], conversation, response_lang, store_id, customer_number)
+                if detail is not None:
+                    return detail
+            # else: fall through — customer may have typed a product name
+
+        # A colour menu is showing → resolve "2" / "Black" into that colour's designs.
+        if snapshot and snapshot.get("kind") == "category_colors":
+            sel = self._resolve_menu_selection(text, snapshot.get("items", []))
+            if sel:
+                return self._color_products_response(
+                    conversation, products, snapshot.get("category_id"),
+                    snapshot.get("category_name"), sel.get("color"), 0,
+                    response_lang, store_id, customer_number)
+
+        # A colour's designs are showing → pagination + numbered design selection.
+        # Same contract as the plain product page, so the number the customer
+        # replies with resolves against exactly the images that were sent.
+        if snapshot and snapshot.get("kind") == "color_products":
+            nav = self._nav_command(text)
+            if nav in ("next", "prev"):
+                delta = MEDIA_PAGE_SIZE if nav == "next" else -MEDIA_PAGE_SIZE
+                return self._render_color_products_page(
+                    conversation, self._snapshot_source(products, snapshot),
+                    snapshot.get("category_id"), snapshot.get("category_name"),
+                    snapshot.get("color"),
+                    max(0, snapshot.get("offset", 0) + delta),
+                    response_lang, store_id, customer_number)
+            sel = self._resolve_menu_selection(text, snapshot.get("items", []))
+            if sel:
+                detail = self._product_detail_response(
+                    products, sel.get("product_id") or sel.get("id"), conversation,
+                    response_lang, store_id, customer_number,
+                    # The image was just sent in the gallery — repeating it here
+                    # would be a second copy of the same picture.
+                    include_image=False)
                 if detail is not None:
                     return detail
             # else: fall through — customer may have typed a product name
@@ -401,7 +460,10 @@ class ConversationController:
         cleaned = self._clean_for_category(text)
         if cleaned:
             for it in items:
-                if cleaned == (it.get("name") or "").lower().strip():
+                # Colour menus label their entries "color"; every other menu
+                # uses "name". Both are matched on the exact shown label.
+                label = (it.get("name") or it.get("color") or "").lower().strip()
+                if cleaned == label:
                     return it
         return None
 
@@ -422,7 +484,17 @@ class ConversationController:
         )
 
     @staticmethod
-    def _display_price(product) -> float:
+    def _display_price(product, color: str | None = None) -> float:
+        """Lowest active variant price, optionally restricted to one colour."""
+        if color:
+            target = normalize_color(color)
+            in_color = [
+                v.price for v in product.variants
+                if v.is_active and v.price and v.color
+                and normalize_color(v.color) == target
+            ]
+            if in_color:
+                return min(in_color)
         prices = [v.price for v in product.variants if v.is_active and v.price]
         return min(prices) if prices else (product.base_price or 0.0)
 
@@ -469,6 +541,9 @@ class ConversationController:
 
     def _snapshot_source(self, products, snapshot):
         """Reconstruct the product list a snapshot paginates over, by scope."""
+        if snapshot.get("kind") == "color_products":
+            return self._products_in_color(
+                products, snapshot.get("category_id"), snapshot.get("color"))
         if snapshot.get("scope") == "all":
             return self._available_products(products)
         cid = snapshot.get("category_id")
@@ -563,7 +638,6 @@ class ConversationController:
         offset = max(0, min(offset, max_offset))
         page = source[offset:offset + CATEGORY_PAGE_SIZE]
         items = [{"n": offset + i + 1, "id": p.id, "name": p.name} for i, p in enumerate(page)]
-        from datetime import datetime
         conversation.set_menu_snapshot({
             "kind": "products", "scope": scope, "store_id": store_id,
             "category_id": category_id, "category_name": label,
@@ -600,13 +674,174 @@ class ConversationController:
 
     def _category_products_response(self, conversation, products, category_id, category_name,
                                     offset, response_lang, store_id, customer_number):
-        """Thin wrapper: render a single category's active products as a page."""
+        """Open a category: ask for a colour first when that is a real choice.
+
+        A shop owner answering "Cotton dikhao" asks which colour before pulling
+        designs off the shelf. That only makes sense when the category actually
+        holds several products in several colours — a single product, or a
+        single colour, goes straight to the product page as before.
+        """
         in_cat = [p for p in products if getattr(p, "category_id", None) == category_id and p.is_active]
+        colors = self._category_colors(products, category_id)
+        if len(colors) > 1 and len(self._available_products(in_cat)) > 1:
+            return self._category_colors_response(
+                conversation, category_id, category_name, colors,
+                response_lang, store_id, customer_number)
         return self._render_products_page(
             conversation, in_cat, category_name, "category", category_id,
             offset, response_lang, store_id, customer_number)
 
-    def _product_detail_response(self, products, pid, conversation, response_lang, store_id, customer_number):
+    # --- Colour menu inside a category -------------------------------------
+
+    @staticmethod
+    def _category_colors(products, category_id) -> list[str]:
+        """Distinct sellable colours in one category, in catalogue order.
+
+        Only active, in-stock variants count, so the menu never offers a colour
+        the customer cannot actually buy. Labels keep the seller's own casing;
+        de-duplication is done on the normalised form so "Blk"/"black" collapse.
+        """
+        colors, seen = [], set()
+        for p in products:
+            if not p.is_active or getattr(p, "category_id", None) != category_id:
+                continue
+            for v in p.variants:
+                if not (v.is_active and v.stock > 0 and v.color):
+                    continue
+                key = normalize_color(v.color)
+                if key in seen:
+                    continue
+                seen.add(key)
+                colors.append(v.color.strip())
+        return colors
+
+    @staticmethod
+    def _products_in_color(products, category_id, color):
+        """Active products in a category with a sellable variant in `color`.
+
+        Scoped to the category the customer opened — the caller only ever passes
+        this store's products, so a colour never reaches across stores.
+        """
+        if not color:
+            return []
+        target = normalize_color(color)
+        return [
+            p for p in products
+            if p.is_active and getattr(p, "category_id", None) == category_id
+            and any(
+                v.is_active and v.stock > 0 and v.color
+                and normalize_color(v.color) == target
+                for v in p.variants
+            )
+        ]
+
+    def _category_colors_response(self, conversation, category_id, category_name, colors,
+                                  response_lang, store_id, customer_number):
+        """Show the colours stocked in a category and snapshot the exact menu."""
+        items = [{"n": i, "color": c} for i, c in enumerate(colors, 1)]
+        conversation.set_menu_snapshot({
+            "kind": "category_colors", "store_id": store_id,
+            "category_id": category_id, "category_name": category_name,
+            "items": items, "ts": datetime.utcnow().isoformat(),
+        })
+        conversation.browse_category_id = category_id
+        conversation.browse_offset = 0
+        ur = response_lang in ("ur", "roman_urdu")
+        header = (f"{category_name} mein available colors:" if ur
+                  else f"Colors available in {category_name}:")
+        footer = ("Color ka naam ya number bhejein." if ur
+                  else "Reply with a color name or number.")
+        lines = [header, ""] + [f"{it['n']}. {it['color']}" for it in items] + ["", footer]
+        return ProcessedResponse(
+            message="\n".join(lines), intent="category_colors", confidence=1.0,
+            sources=[f"catalog:category:{category_id}"],
+            store_id=store_id, customer_number=customer_number,
+        )
+
+    def _color_products_response(self, conversation, products, category_id, category_name,
+                                 color, offset, response_lang, store_id, customer_number):
+        """Thin wrapper: render one colour's designs inside a category."""
+        return self._render_color_products_page(
+            conversation, self._products_in_color(products, category_id, color),
+            category_id, category_name, color, offset,
+            response_lang, store_id, customer_number)
+
+    def _render_color_products_page(self, conversation, source, category_id, category_name,
+                                    color, offset, response_lang, store_id, customer_number):
+        """Send one bounded gallery of a colour's designs, numbered for selection.
+
+        Products that have a picture become `media_items` (image + numbered
+        caption); products without one stay as text lines so nothing is dropped
+        and the numbering stays continuous either way.
+        """
+        ur = response_lang in ("ur", "roman_urdu")
+        label = " ".join(x for x in (color, category_name) if x)
+        total = len(source)
+
+        if total == 0:
+            conversation.set_menu_snapshot(None)
+            conversation.browse_category_id = category_id
+            msg = (f"Is waqt '{label}' mein koi design available nahi hai."
+                   if ur else f"There are no designs in '{label}' right now.")
+            return ProcessedResponse(
+                message=msg, intent="color_products", confidence=1.0,
+                sources=[f"catalog:category:{category_id}"],
+                store_id=store_id, customer_number=customer_number)
+
+        max_offset = ((total - 1) // MEDIA_PAGE_SIZE) * MEDIA_PAGE_SIZE
+        offset = max(0, min(offset, max_offset))
+        page = source[offset:offset + MEDIA_PAGE_SIZE]
+        items = [{"n": offset + i + 1, "product_id": p.id, "name": p.name}
+                 for i, p in enumerate(page)]
+        conversation.set_menu_snapshot({
+            "kind": "color_products", "store_id": store_id,
+            "category_id": category_id, "category_name": category_name,
+            "color": color, "offset": offset, "total": total,
+            "items": items, "ts": datetime.utcnow().isoformat(),
+        })
+        conversation.browse_category_id = category_id
+        conversation.browse_offset = offset
+        conversation.add_recently_shown_products([p.id for p in page])
+
+        media_items, text_lines = [], []
+        for it, p in zip(items, page):
+            price = self._display_price(p, color)
+            caption = f"{it['n']}. {p.name}" + (f" — Rs. {price:,.0f}" if price else "")
+            if p.image_url:
+                media_items.append({
+                    "product_id": p.id, "image_url": p.image_url, "caption": caption,
+                })
+            else:
+                text_lines.append(caption)
+
+        header = (f"{label} mein {total} designs available hain:" if ur
+                  else f"{total} designs available in {label}:")
+        nav = ["Number bhej kar design select karein" if ur
+               else "Reply with a number to select a design"]
+        if offset + len(page) < total:
+            nav.append("'More'")
+        if offset > 0:
+            nav.append("'Previous'")
+        nav.append("'Back' colors ke liye" if ur else "'Back' for colors")
+        nav_text = ", ".join(nav) + "."
+
+        lines = [header]
+        if text_lines:
+            lines += [""] + text_lines
+        if not media_items:
+            # Nothing to send as media — keep it a single self-contained text.
+            lines += ["", nav_text]
+
+        return ProcessedResponse(
+            message="\n".join(lines), intent="color_products", confidence=1.0,
+            media_items=media_items,
+            media_footer=nav_text if media_items else None,
+            sources=[f"catalog:category:{category_id}"],
+            store_id=store_id, customer_number=customer_number,
+        )
+
+    def _product_detail_response(self, products, pid, conversation, response_lang, store_id,
+                                customer_number, include_image: bool = True):
         product = next((p for p in products if p.id == pid), None)
         if not product:
             return None
@@ -658,7 +893,8 @@ class ConversationController:
             message="\n".join(lines), intent="product_search", confidence=1.0,
             matched_product_id=product.id,
             matched_variant_id=active_vars[0].id if len(active_vars) == 1 else None,
-            image_url=product.image_url, sources=[f"catalog:product:{product.id}"],
+            image_url=product.image_url if include_image else None,
+            sources=[f"catalog:product:{product.id}"],
             store_id=store_id, customer_number=customer_number,
         )
 
@@ -720,10 +956,30 @@ class ConversationController:
                 if entities.quantity or entities.size:
                     conversation.order_stage = "BROWSING"
                     self.orders.advance_stage(conversation, product=product)
+                elif self._is_affirmative(message):
+                    # They are looking at a specific product and answered a
+                    # confirmation prompt ("Confirmed", "Proceed", "Haan"). A shop
+                    # owner would start writing the order, not re-answer with a
+                    # catalogue search — which is what used to happen, producing
+                    # "we couldn't find 'confirmed' in our catalogue".
+                    conversation.order_stage = "BROWSING"
+                    self.orders.advance_stage(conversation, product=product)
                 else:
                     # They just said "Yes, that one" or confirmed a product.
                     # This is product selection, NOT order confirmation.
                     return None
+
+        # The size/colour question lists this product's real labels, so a bare
+        # "M" or "Black" answering it is read against exactly those labels. The
+        # generic extractor deliberately does not treat single letters as sizes
+        # (it would guess sizes out of ordinary chat), which left the customer
+        # re-asked forever right at the point of sale.
+        if conversation.order_stage == "PRODUCT_SELECTED":
+            label_color, label_size = self._match_variant_labels(product, message)
+            if label_color:
+                entities.color = label_color
+            if label_size:
+                entities.size = label_size
 
         # Corrections can move variant selection backwards safely.
         if entities.color or entities.size:
@@ -751,13 +1007,24 @@ class ConversationController:
                 self.orders.advance_stage(conversation, variant=variant)
 
         if conversation.order_stage == "VARIANT_SELECTED":
+            # An explicit number always counts ("medium 2" in one message). Reading
+            # a bare yes as "one piece" only makes sense when the customer was
+            # already being asked how many — otherwise the "Order" that just
+            # started the funnel would silently answer the quantity question too.
             quantity = entities.quantity
-            if quantity is None and intent == "order_confirmation":
+            if (
+                quantity is None
+                and intent == "order_confirmation"
+                and entry_stage == "VARIANT_SELECTED"
+            ):
                 quantity = 1
             if quantity:
                 self.orders.advance_stage(conversation, quantity=quantity)
 
-        if conversation.order_stage == "QUANTITY_SELECTED":
+        if conversation.order_stage == "QUANTITY_SELECTED" and entry_stage == "QUANTITY_SELECTED":
+            # Same rule as the address step: only a reply sent while we were
+            # actually asking for the name may be stored as the name, or "Order"
+            # ends up as the customer's name.
             name, phone = self._customer_details(message, customer_number)
             if name and phone:
                 self.orders.advance_stage(
@@ -903,15 +1170,46 @@ class ConversationController:
             .limit(1)
         )
         order = result.scalar_one_or_none()
-        if order:
-            order.status = "cancelled"
-        self.conversations.clear_order_context(conversation)
         lang = "ur" if store_language in ("ur", "roman_urdu") else "en"
+        message = t("order_cancelled", lang)
+        if order is None and conversation.order_stage in ("BROWSING", "ORDER_CREATED"):
+            # Nothing in progress and no order on file — don't claim we cancelled
+            # something that never existed.
+            return ProcessedResponse(
+                message=t("order_not_found", lang), intent="order_cancel",
+                confidence=1.0, store_id=conversation.store_id,
+            )
+        if order:
+            # Cancelling releases the units back to the catalogue. Confirming an
+            # order decremented stock, so without this the seller silently loses
+            # sellable inventory on every cancellation. Guarded on status so a
+            # repeated "cancel" can never restock the same order twice.
+            await self._restore_stock(db, order)
+            order.status = "cancelled"
+            await db.flush()
+            message = t("order_cancelled_with_id", lang, order_id=order.id)
+        self.conversations.clear_order_context(conversation)
         return ProcessedResponse(
-            message=t("order_cancelled", lang), intent="order_cancel", confidence=1.0,
+            message=message, intent="order_cancel", confidence=1.0,
             sources=[f"order:{order.id}"] if order else [],
             store_id=conversation.store_id,
         )
+
+    async def _restore_stock(self, db: AsyncSession, order: Order) -> None:
+        """Return an order's reserved units to their variants.
+
+        Locks each variant row so a concurrent purchase cannot lose the update.
+        """
+        for item in order.items:
+            if not item.variant_id or not item.quantity:
+                continue
+            variant = (await db.execute(
+                select(ProductVariant)
+                .where(ProductVariant.id == item.variant_id)
+                .with_for_update()
+            )).scalar_one_or_none()
+            if variant is not None:
+                variant.stock += item.quantity
 
     async def _optional_ai_response(
         self, conversation, message, response, products, policies,
@@ -972,6 +1270,14 @@ class ConversationController:
         # Server-side validation against AI future promises (English, Roman Urdu, Urdu script)
         if self._detect_future_action_promise(ai.response_message):
             # Reject AI response and fall back to the deterministic one.
+            return response
+
+        # Only `_finalize_order` may tell a customer their order is placed, and it
+        # always includes the real order ID. The AI otherwise improvises a
+        # convincing "your order has been confirmed!" while no order row exists and
+        # no stock is reserved — the customer believes they have bought something
+        # and the seller never sees it.
+        if self._detect_false_order_claim(ai.response_message):
             return response
 
         # Preserve deterministic image and variants if AI didn't select a valid one
@@ -1065,6 +1371,34 @@ class ConversationController:
         return next((v for v in product.variants if v.id == variant_id), None)
 
     @staticmethod
+    def _canonical_size(value: str) -> str:
+        """Fold size spellings together so "M", "m" and "Medium" are one size."""
+        v = (value or "").strip().lower()
+        return SIZE_NORMALIZE.get(v, v)
+
+    @classmethod
+    def _match_variant_labels(cls, product, message):
+        """Resolve a short reply against this product's own variant labels.
+
+        Returns (color, size) using the seller's exact stored labels, so the
+        variant lookup that follows matches on the real row. Only whole-message
+        matches count, which keeps "Order" or "Back" from ever being read as a
+        size.
+        """
+        text = normalize_text(message).strip()
+        if not text:
+            return None, None
+        color = size = None
+        for v in product.variants:
+            if not v.is_active:
+                continue
+            if v.size and cls._canonical_size(text) == cls._canonical_size(v.size):
+                size = v.size
+            if v.color and normalize_color(text) == normalize_color(v.color):
+                color = v.color
+        return color, size
+
+    @staticmethod
     def _matching_variant(product, color, size):
         matches = [
             variant for variant in product.variants
@@ -1116,6 +1450,9 @@ class ConversationController:
         "ok", "okay", "okey", "theek", "thik", "teek", "sahi", "acha", "achha", "accha",
         "confirm", "confirmed", "pakka", "final", "done", "order", "book", "bilkul",
         "karo", "kardo", "krdo", "kardein", "lo",
+        # "proceed"/"go ahead" style replies to a confirmation prompt
+        "proceed", "ahead", "go", "chalo", "chalein", "shuru", "aagay", "agay", "barhein",
+        "کریں", "چلیں", "آگے", "شروع",
         "ہاں", "جی", "ٹھیک", "اوکے", "اوکی", "کنفرم", "بالکل", "کریں", "کردیں", "کرو",
     }
     _AFFIRM_FILLER = {
@@ -1166,6 +1503,31 @@ class ConversationController:
             store_id=base.store_id,
             customer_number=base.customer_number,
         )
+
+    # Phrases that assert an order exists / is placed. Only the deterministic
+    # `_finalize_order` may say this, and it names a real order ID.
+    _FALSE_ORDER_CLAIM_PHRASES = (
+        "order has been", "order is confirmed", "order confirmed", "order is placed",
+        "order has successfully", "successfully confirmed", "successfully placed",
+        "order placed", "placed your order", "confirmed your order", "booked your order",
+        "finalize your order", "finalise your order", "finalizing your order",
+        "order is on its way", "order ho gaya", "order ho gya", "order confirm ho",
+        "order place ho", "order kar diya", "order kardiya", "order mukammal",
+        "آرڈر کنفرم", "آرڈر ہو گیا", "آرڈر ہوگیا", "آرڈر کر دیا", "آرڈر کردیا",
+        "آرڈر مکمل", "آرڈر درج",
+    )
+
+    @classmethod
+    def _detect_false_order_claim(cls, message: str) -> bool:
+        """Does this AI text claim an order was created?
+
+        Used to reject the response: an order only exists when the state machine
+        wrote one, and that path produces its own message carrying the order ID.
+        """
+        if not message:
+            return False
+        cleaned = " ".join(re.sub(r"[^\w\s؀-ۿ]", " ", message.lower()).split())
+        return any(phrase in cleaned for phrase in cls._FALSE_ORDER_CLAIM_PHRASES)
 
     @staticmethod
     def _detect_future_action_promise(message: str) -> bool:

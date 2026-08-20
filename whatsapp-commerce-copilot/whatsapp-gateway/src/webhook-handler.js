@@ -254,7 +254,51 @@ async function forwardAndReply(storeId, customerNumber, messageText, messageType
 
     const sendStart = Date.now();
 
-    if (res.data.image_url) {
+    const mediaItems = Array.isArray(res.data.media_items) ? res.data.media_items : [];
+
+    if (mediaItems.length) {
+      // A gallery reply: header text, then every image IN ORDER, then the
+      // "reply with a number" prompt. Sent sequentially on purpose — Promise.all
+      // would race and WhatsApp would show the designs out of order, breaking
+      // the numbering the customer replies with.
+      logger.info({
+        msg: 'Gallery send attempted', storeId, messageId: whatsappMessageId,
+        mediaCount: mediaItems.length, matchStatus
+      });
+      let sentAny = false;
+      try {
+        if (res.data.message) {
+          await evolutionClient.sendText(storeId, customerNumber, res.data.message);
+        }
+        for (const item of mediaItems) {
+          if (!item?.image_url) continue;
+          await evolutionClient.sendMedia(storeId, customerNumber, item.image_url, item.caption || '');
+          sentAny = true;
+        }
+        if (res.data.media_footer) {
+          await evolutionClient.sendText(storeId, customerNumber, res.data.media_footer);
+        }
+        logger.info({
+          msg: 'Gallery send successful', storeId, messageId: whatsappMessageId,
+          mediaCount: mediaItems.length, matchStatus
+        });
+      } catch (err) {
+        logger.error({
+          msg: 'Gallery send failed', storeId, messageId: whatsappMessageId,
+          mediaCount: mediaItems.length, matchStatus, error: err.message
+        });
+        // Fall back to a text list so the customer still gets the numbered
+        // designs they can reply to, instead of silence.
+        const fallback = [
+          sentAny ? null : res.data.message,
+          ...mediaItems.map((i) => i.caption).filter(Boolean),
+          res.data.media_footer,
+        ].filter(Boolean).join('\n');
+        if (fallback) {
+          await evolutionClient.sendText(storeId, customerNumber, fallback);
+        }
+      }
+    } else if (res.data.image_url) {
       try {
         logger.info({ 
           msg: 'Media send attempted', storeId, messageId: whatsappMessageId, 

@@ -102,6 +102,8 @@ class DemoMessageResponse(BaseModel):
     matched_product_id: Optional[str] = None
     matched_variant_id: Optional[str] = None
     image_url: Optional[str] = None
+    media_items: list[dict] = []
+    media_footer: Optional[str] = None
     sources: list[str] = []
     extracted_entities: dict = {}
     clarification_options: Optional[list[dict]] = None

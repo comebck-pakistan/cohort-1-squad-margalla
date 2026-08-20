@@ -21,6 +21,13 @@ class ProcessedResponse:
     matched_product_id: str | None = None
     matched_variant_id: str | None = None
     image_url: str | None = None
+    # Ordered gallery for replies that show several designs at once. Each item is
+    # {"product_id", "image_url", "caption"}; the transport sends them one by one
+    # so the numbering the customer replies with matches the order they arrive in.
+    media_items: list[dict] = field(default_factory=list)
+    # Text sent AFTER the gallery (e.g. "reply with a number"). Kept separate from
+    # `message` so the instruction lands last and stays translatable in one place.
+    media_footer: str | None = None
     sources: list[str] = field(default_factory=list)
     extracted_entities: dict = field(default_factory=dict)
     clarification_options: list[dict] | None = None
@@ -39,6 +46,8 @@ class ProcessedResponse:
             "matched_product_id": self.matched_product_id,
             "matched_variant_id": self.matched_variant_id,
             "image_url": self.image_url,
+            "media_items": self.media_items,
+            "media_footer": self.media_footer,
             "sources": self.sources,
             "extracted_entities": self.extracted_entities,
             "clarification_options": self.clarification_options,
