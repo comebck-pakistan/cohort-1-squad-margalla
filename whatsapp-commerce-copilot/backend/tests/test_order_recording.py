@@ -312,6 +312,53 @@ async def test_product_context_survives_mid_order_turns(client, db_session, monk
     assert len(orders) == 1
 
 
+@pytest.mark.parametrize("reply", ["Confirmed", "Proceed", "go ahead", "haan"])
+async def test_confirming_on_a_product_never_searches_the_catalogue(
+    client, db_session, reply
+):
+    """Answering a confirmation prompt must not be treated as a product name.
+
+    Live this produced "Sorry, we couldn't find 'confirmed' in our catalogue" and
+    the customer was stuck: the reply fell through to catalogue search instead of
+    the order flow.
+    """
+    s, prod = await _seed(db_session, name=f"Confirm {reply}")
+    cust = "9230033" + str(abs(hash(reply)) % 10000).zfill(4)
+
+    await _msg(client, s.id, "Hi", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "1", cust)          # viewing the product
+    r = await _msg(client, s.id, reply, cust)
+
+    assert "couldn't find" not in r["message"].lower()
+    assert "could not find" not in r["message"].lower()
+    assert reply.lower() not in r["message"].lower() or "order" in r["message"].lower()
+    # the order flow has started rather than a search being run
+    assert await _stage(db_session, s.id) != "BROWSING"
+
+
+async def test_confirm_then_proceed_completes_the_order(client, db_session):
+    """The screenshot flow: view → Confirmed → details → Proceed → real order."""
+    s, prod = await _seed(db_session, name="Screenshot Store")
+    cust = "923003339999"
+
+    await _msg(client, s.id, "Hi", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Confirmed", cust)          # starts the order
+    await _msg(client, s.id, "white medium", cust)
+    await _msg(client, s.id, "1", cust)
+    await _msg(client, s.id, "Ali Khan 03001234567", cust)
+    await _msg(client, s.id, "House 12, Gulberg, Lahore", cust)
+    await _msg(client, s.id, "COD", cust)
+    r = await _msg(client, s.id, "Proceed", cust)
+
+    orders = (await db_session.execute(
+        select(Order).where(Order.store_id == s.id))).scalars().all()
+    assert len(orders) == 1
+    assert orders[0].id in r["message"], "confirmation must name the real order ID"
+
+
 async def test_acknowledgement_outside_order_flow_is_not_an_order(client, db_session):
     """A bare 'ok' while browsing must never create an order."""
     s, _ = await _seed(db_session, name="Browse Store")

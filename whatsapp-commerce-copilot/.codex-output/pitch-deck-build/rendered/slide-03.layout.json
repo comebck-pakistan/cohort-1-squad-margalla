@@ -1,0 +1,1184 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/nxad0z",
+    "id": "nxad0z",
+    "slide": 3,
+    "layoutId": "456436e3-e85c-4f61-8d01-0cf3929bd997",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "ad078918-a7e4-46c3-bf0b-7dd137ff4e94",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7F8F6",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "456436e3-e85c-4f61-8d01-0cf3929bd997",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "ad078918-a7e4-46c3-bf0b-7dd137ff4e94",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "ad078918-a7e4-46c3-bf0b-7dd137ff4e94",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xofud4ji",
+      "id": "1",
+      "bbox": [
+        72,
+        40,
+        350,
+        24
+      ],
+      "geometry": "rect",
+      "text": "THE GAP",
+      "textPreview": "THE GAP",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#075E54",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "THE GAP"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "THE GAP",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#075E54",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "THE GAP",
+              "fontSize": 13,
+              "color": "#075E54",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a1ob29kr",
+      "id": "2",
+      "name": "title",
+      "bbox": [
+        72,
+        70,
+        1110,
+        62
+      ],
+      "geometry": "rect",
+      "text": "Today’s tools split conversation from commerce.",
+      "textPreview": "Today’s tools split conversation from commerce.",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Today’s tools split conversation from commerce."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Today’s tools split conversation from commerce.",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Today’s tools split conversation from commerce.",
+              "fontSize": 38,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/v2xcbu1c",
+      "id": "3",
+      "bbox": [
+        1170,
+        45,
+        38,
+        24
+      ],
+      "geometry": "rect",
+      "text": "03",
+      "textPreview": "03",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "03"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "03",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5F6B64",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "03",
+              "fontSize": 13,
+              "color": "#5F6B64",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8z6t0z2l",
+      "id": "4",
+      "bbox": [
+        72,
+        137,
+        1136,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#D9E0DB",
+      "lineColor": "#D9E0DB",
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/90fa94j6",
+      "id": "5",
+      "bbox": [
+        72,
+        185,
+        340,
+        250
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E0DB",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mx4bypkv",
+      "id": "6",
+      "bbox": [
+        96,
+        210,
+        18,
+        18
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#F2A93B",
+      "lineColor": "#F2A93B",
+      "lineWidth": 1
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nyxs7u1g",
+      "id": "7",
+      "bbox": [
+        96,
+        250,
+        290,
+        40
+      ],
+      "geometry": "rect",
+      "text": "Manual WhatsApp",
+      "textPreview": "Manual WhatsApp",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 25,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Manual WhatsApp"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Manual WhatsApp",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Manual WhatsApp",
+              "fontSize": 25,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0vmtwf2p",
+      "id": "8",
+      "bbox": [
+        96,
+        315,
+        290,
+        30
+      ],
+      "geometry": "rect",
+      "text": "Familiar",
+      "textPreview": "Familiar",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#F2A93B",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Familiar"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Familiar",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#F2A93B",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Familiar",
+              "fontSize": 18,
+              "color": "#F2A93B",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lwva5kja",
+      "id": "9",
+      "bbox": [
+        96,
+        350,
+        285,
+        60
+      ],
+      "geometry": "rect",
+      "text": "but unstructured and hard to scale",
+      "textPreview": "but unstructured and hard to scale",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "but unstructured and hard to"
+          },
+          {
+            "index": 2,
+            "text": "scale"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "but unstructured and hard to scale",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "but unstructured and hard to scale",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9wzehgr6",
+      "id": "10",
+      "bbox": [
+        444,
+        185,
+        340,
+        250
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E0DB",
+      "lineWidth": 1
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ovqxobql",
+      "id": "11",
+      "bbox": [
+        468,
+        210,
+        18,
+        18
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6C4CF1",
+      "lineColor": "#6C4CF1",
+      "lineWidth": 1
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nuhwf690",
+      "id": "12",
+      "bbox": [
+        468,
+        250,
+        290,
+        40
+      ],
+      "geometry": "rect",
+      "text": "Generic chatbot",
+      "textPreview": "Generic chatbot",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 25,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Generic chatbot"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Generic chatbot",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Generic chatbot",
+              "fontSize": 25,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2t8fm1sv",
+      "id": "13",
+      "bbox": [
+        468,
+        315,
+        290,
+        30
+      ],
+      "geometry": "rect",
+      "text": "Automated",
+      "textPreview": "Automated",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#6C4CF1",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Automated"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Automated",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#6C4CF1",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Automated",
+              "fontSize": 18,
+              "color": "#6C4CF1",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1sfedwra",
+      "id": "14",
+      "bbox": [
+        468,
+        350,
+        285,
+        60
+      ],
+      "geometry": "rect",
+      "text": "but may not know live price or stock",
+      "textPreview": "but may not know live price or stock",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "but may not know live price or"
+          },
+          {
+            "index": 2,
+            "text": "stock"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "but may not know live price or stock",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "but may not know live price or stock",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0r6xkbap",
+      "id": "15",
+      "bbox": [
+        816,
+        185,
+        340,
+        250
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9E0DB",
+      "lineWidth": 1
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fqxwb694",
+      "id": "16",
+      "bbox": [
+        840,
+        210,
+        18,
+        18
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#075E54",
+      "lineColor": "#075E54",
+      "lineWidth": 1
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/epovi1sj",
+      "id": "17",
+      "bbox": [
+        840,
+        250,
+        290,
+        40
+      ],
+      "geometry": "rect",
+      "text": "E-commerce site",
+      "textPreview": "E-commerce site",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 25,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "E-commerce site"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "E-commerce site",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "E-commerce site",
+              "fontSize": 25,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dofepwry",
+      "id": "18",
+      "bbox": [
+        840,
+        315,
+        290,
+        30
+      ],
+      "geometry": "rect",
+      "text": "Structured",
+      "textPreview": "Structured",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#075E54",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Structured"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Structured",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#075E54",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Structured",
+              "fontSize": 18,
+              "color": "#075E54",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sn6dgrad",
+      "id": "19",
+      "bbox": [
+        840,
+        350,
+        285,
+        60
+      ],
+      "geometry": "rect",
+      "text": "but asks customers to leave the chat",
+      "textPreview": "but asks customers to leave the chat",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "but asks customers to leave the"
+          },
+          {
+            "index": 2,
+            "text": "chat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "but asks customers to leave the chat",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5F6B64",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "but asks customers to leave the chat",
+              "fontSize": 18,
+              "color": "#5F6B64",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/47axwri9",
+      "id": "20",
+      "bbox": [
+        72,
+        492,
+        260,
+        28
+      ],
+      "geometry": "rect",
+      "text": "The missing layer",
+      "textPreview": "The missing layer",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#075E54",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The missing layer"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The missing layer",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#075E54",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The missing layer",
+              "fontSize": 18,
+              "color": "#075E54",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/58je5wzu",
+      "id": "21",
+      "bbox": [
+        72,
+        530,
+        1136,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#25D366",
+      "lineColor": "#25D366",
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i58fu10j",
+      "id": "22",
+      "bbox": [
+        72,
+        550,
+        1040,
+        70
+      ],
+      "geometry": "rect",
+      "text": "Keep the conversation in WhatsApp — add catalog truth, order structure and human control behind it.",
+      "textPreview": "Keep the conversation in WhatsApp — add catalog truth, order structure and human control behind it.",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 30,
+        "typeface": "+mn-lt",
+        "color": "#17211C",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Keep the conversation in WhatsApp — add catalog truth, order"
+          },
+          {
+            "index": 2,
+            "text": "structure and human control behind it."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Keep the conversation in WhatsApp — add catalog truth, order structure and human control behind it.",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "color": "#17211C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Keep the conversation in WhatsApp — add catalog truth, order structure and human control behind it.",
+              "fontSize": 30,
+              "color": "#17211C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/j61w3mho",
+      "id": "23",
+      "bbox": [
+        72,
+        680,
+        400,
+        18
+      ],
+      "geometry": "rect",
+      "text": "WHATSAPP COMMERCE COPILOT",
+      "textPreview": "WHATSAPP COMMERCE COPILOT",
+      "resolvedFontSize": 11,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 11,
+        "typeface": "+mn-lt",
+        "color": "#5F6B64",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "WHATSAPP COMMERCE COPILOT"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "WHATSAPP COMMERCE COPILOT",
+          "resolvedTextStyle": {
+            "fontSize": 11,
+            "color": "#5F6B64",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "WHATSAPP COMMERCE COPILOT",
+              "fontSize": 11,
+              "color": "#5F6B64",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

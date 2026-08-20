@@ -1,0 +1,385 @@
+{"kind":"deck","id":"pr/vnoni0","name":"Deck"}
+{"kind":"layout","layoutId":"ad078918-a7e4-46c3-bf0b-7dd137ff4e94","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"456436e3-e85c-4f61-8d01-0cf3929bd997","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/vvy2qz","slide":1,"title":"WA","textShapes":7}
+{"kind":"shape","id":"sh/qt8n6tgf","slide":1,"bbox":[900,-140,470,470]}
+{"kind":"shape","id":"sh/dwzm18zq","slide":1,"bbox":[1050,20,270,270]}
+{"kind":"textbox","id":"sh/svq583yl","slide":1,"text":"WA","textPreview":"WA","textChars":2,"textLines":1,"bbox":[1110,94,150,90]}
+{"kind":"textbox","id":"sh/fy143ihw","slide":1,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,90,650,28]}
+{"kind":"textbox","id":"sh/ex8nadgb","slide":1,"text":"Turn every WhatsApp chat\ninto a commerce channel.","textPreview":"Turn every WhatsApp chat | into a commerce channel.","textChars":49,"textLines":2,"bbox":[72,170,790,155]}
+{"kind":"textbox","id":"sh/10jm58z2","slide":1,"text":"An always-available, multilingual AI sales assistant grounded in the merchant’s real catalog.","textPreview":"An always-available, multilingual AI sales assistant grounded in the merchant’s real catalog.","textChars":93,"textLines":1,"bbox":[72,350,730,80]}
+{"kind":"shape","id":"sh/0za5c3yh","slide":1,"bbox":[72,476,145,34]}
+{"kind":"textbox","id":"sh/n21o7ih8","slide":1,"text":"WORKING MVP","textPreview":"WORKING MVP","textChars":11,"textLines":1,"bbox":[82,478,125,30]}
+{"kind":"shape","id":"sh/21snedgn","slide":1,"bbox":[230,476,145,34]}
+{"kind":"textbox","id":"sh/4ful8nel","slide":1,"text":"PILOT-READY","textPreview":"PILOT-READY","textChars":11,"textLines":1,"bbox":[240,478,125,30]}
+{"kind":"textbox","id":"sh/503mhsv6","slide":1,"text":"Presenter / Team • Demo Day","textPreview":"Presenter / Team • Demo Day","textChars":27,"textLines":1,"bbox":[72,620,500,30]}
+{"kind":"notes","id":"nt/vvy2qz","slide":1,"text":"Opening (20 sec): ‘A customer asks for size 42 at 11:47 p.m. The sale should not depend on whether the shop owner is awake.’ We turn the WhatsApp account merchants already use into a guided, catalog-grounded sales channel.\n\nTransition: First, why this matters for the merchants we are building for.\n\n[Sources]\n- Repository README.md\n- docs/PROJECT_OVERVIEW.md"}
+{"kind":"slide","id":"sl/ar72sy","slide":2,"title":"THE PAIN","textShapes":17}
+{"kind":"textbox","id":"sh/g7mhwjml","slide":2,"text":"THE PAIN","textPreview":"THE PAIN","textChars":8,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/f6d03e50","slide":2,"name":"title","text":"The shop is open. The seller is overwhelmed.","textPreview":"The shop is open. The seller is overwhelmed.","textChars":44,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/e54zu94f","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/pwvi9on2","slide":2,"bbox":[72,137,1136,2]}
+{"kind":"textbox","id":"sh/ovmh0jmh","slide":2,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[72,175,55,40]}
+{"kind":"textbox","id":"sh/3ud07e5c","slide":2,"text":"Same questions, all day","textPreview":"Same questions, all day","textChars":23,"textLines":1,"bbox":[145,175,410,36]}
+{"kind":"textbox","id":"sh/294zyt4r","slide":2,"text":"Price? Size? Stock? Delivery?","textPreview":"Price? Size? Stock? Delivery?","textChars":29,"textLines":1,"bbox":[565,175,560,42]}
+{"kind":"shape","id":"sh/d0fid8ne","slide":2,"bbox":[145,242,980,1]}
+{"kind":"textbox","id":"sh/cz6h43mt","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[72,280,55,40]}
+{"kind":"textbox","id":"sh/m5snal0n","slide":2,"text":"Commerce lives in chat","textPreview":"Commerce lives in chat","textChars":22,"textLines":1,"bbox":[145,280,410,36]}
+{"kind":"textbox","id":"sh/n6l4jqhs","slide":2,"text":"Product details and order notes get scattered.","textPreview":"Product details and order notes get scattered.","textChars":46,"textLines":1,"bbox":[565,280,560,42]}
+{"kind":"shape","id":"sh/oru5cvid","slide":2,"bbox":[145,347,980,1]}
+{"kind":"textbox","id":"sh/9s3ml0zy","slide":2,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[72,385,55,40]}
+{"kind":"textbox","id":"sh/atcne50j","slide":2,"text":"Every delay costs intent","textPreview":"Every delay costs intent","textChars":24,"textLines":1,"bbox":[145,385,410,36]}
+{"kind":"textbox","id":"sh/bul4nah4","slide":2,"text":"The customer moves to the next seller who replies.","textPreview":"The customer moves to the next seller who replies.","textChars":50,"textLines":1,"bbox":[565,385,560,42]}
+{"kind":"shape","id":"sh/wvu5gfip","slide":2,"bbox":[145,452,980,1]}
+{"kind":"textbox","id":"sh/xw3mpkza","slide":2,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[72,490,55,40]}
+{"kind":"textbox","id":"sh/qx83210f","slide":2,"text":"Language multiplies effort","textPreview":"Language multiplies effort","textChars":26,"textLines":1,"bbox":[145,490,410,36]}
+{"kind":"textbox","id":"sh/ry14b6h0","slide":2,"text":"English, Urdu, Roman Urdu, voice and images.","textPreview":"English, Urdu, Roman Urdu, voice and images.","textChars":44,"textLines":1,"bbox":[565,490,560,42]}
+{"kind":"shape","id":"sh/vqdsnitg","slide":2,"bbox":[145,557,980,1]}
+{"kind":"shape","id":"sh/u54budcv","slide":2,"bbox":[875,585,333,64]}
+{"kind":"textbox","id":"sh/hsvapsbm","slide":2,"text":"Slow replies → missed orders","textPreview":"Slow replies → missed orders","textChars":28,"textLines":1,"bbox":[895,595,293,44]}
+{"kind":"textbox","id":"sh/grmtwnu1","slide":2,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/ar72sy","slide":2,"text":"Key takeaway: For WhatsApp-first SMEs, repetitive support and manual order-taking consume the same scarce owner time needed to run the business. The economic consequence is not abstract: delayed answers reduce the chance that buying intent becomes a recorded order.\nEstimated time: 30 seconds.\nTransition: If this pain is obvious, why have existing tools not solved it?\n\n[Sources]\n- User-provided brief: target-customer pain framing\n- Repository product scope; no external market statistics used"}
+{"kind":"slide","id":"sl/nxad0z","slide":3,"title":"THE GAP","textShapes":15}
+{"kind":"textbox","id":"sh/xofud4ji","slide":3,"text":"THE GAP","textPreview":"THE GAP","textChars":7,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/a1ob29kr","slide":3,"name":"title","text":"Today’s tools split conversation from commerce.","textPreview":"Today’s tools split conversation from commerce.","textChars":47,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/v2xcbu1c","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/8z6t0z2l","slide":3,"bbox":[72,137,1136,2]}
+{"kind":"shape","id":"sh/90fa94j6","slide":3,"bbox":[72,185,340,250]}
+{"kind":"shape","id":"sh/mx4bypkv","slide":3,"bbox":[96,210,18,18]}
+{"kind":"textbox","id":"sh/nyxs7u1g","slide":3,"text":"Manual WhatsApp","textPreview":"Manual WhatsApp","textChars":15,"textLines":1,"bbox":[96,250,290,40]}
+{"kind":"textbox","id":"sh/0vmtwf2p","slide":3,"text":"Familiar","textPreview":"Familiar","textChars":8,"textLines":1,"bbox":[96,315,290,30]}
+{"kind":"textbox","id":"sh/lwva5kja","slide":3,"text":"but unstructured and hard to scale","textPreview":"but unstructured and hard to scale","textChars":34,"textLines":1,"bbox":[96,350,285,60]}
+{"kind":"shape","id":"sh/9wzehgr6","slide":3,"bbox":[444,185,340,250]}
+{"kind":"shape","id":"sh/ovqxobql","slide":3,"bbox":[468,210,18,18]}
+{"kind":"textbox","id":"sh/nuhwf690","slide":3,"text":"Generic chatbot","textPreview":"Generic chatbot","textChars":15,"textLines":1,"bbox":[468,250,290,40]}
+{"kind":"textbox","id":"sh/2t8fm1sv","slide":3,"text":"Automated","textPreview":"Automated","textChars":9,"textLines":1,"bbox":[468,315,290,30]}
+{"kind":"textbox","id":"sh/1sfedwra","slide":3,"text":"but may not know live price or stock","textPreview":"but may not know live price or stock","textChars":36,"textLines":1,"bbox":[468,350,285,60]}
+{"kind":"shape","id":"sh/0r6xkbap","slide":3,"bbox":[816,185,340,250]}
+{"kind":"shape","id":"sh/fqxwb694","slide":3,"bbox":[840,210,18,18]}
+{"kind":"textbox","id":"sh/epovi1sj","slide":3,"text":"E-commerce site","textPreview":"E-commerce site","textChars":15,"textLines":1,"bbox":[840,250,290,40]}
+{"kind":"textbox","id":"sh/dofepwry","slide":3,"text":"Structured","textPreview":"Structured","textChars":10,"textLines":1,"bbox":[840,315,290,30]}
+{"kind":"textbox","id":"sh/sn6dgrad","slide":3,"text":"but asks customers to leave the chat","textPreview":"but asks customers to leave the chat","textChars":36,"textLines":1,"bbox":[840,350,285,60]}
+{"kind":"textbox","id":"sh/47axwri9","slide":3,"text":"The missing layer","textPreview":"The missing layer","textChars":17,"textLines":1,"bbox":[72,492,260,28]}
+{"kind":"shape","id":"sh/58je5wzu","slide":3,"bbox":[72,530,1136,2]}
+{"kind":"textbox","id":"sh/i58fu10j","slide":3,"text":"Keep the conversation in WhatsApp — add catalog truth, order structure and human control behind it.","textPreview":"Keep the conversation in WhatsApp — add catalog truth, order structure and human control behind it.","textChars":99,"textLines":1,"bbox":[72,550,1040,70]}
+{"kind":"textbox","id":"sh/j61w3mho","slide":3,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/nxad0z","slide":3,"text":"Key takeaway: The opportunity is between a chat interface customers already use and the structured data merchants need. We are not asking customers to learn a new storefront and we are not trusting a generic model with prices.\nEstimated time: 25 seconds.\nTransition: That gap defines the product.\n\n[Sources]\n- docs/PROJECT_OVERVIEW.md\n- docs/AI_PIPELINE.md"}
+{"kind":"slide","id":"sl/16oyuy","slide":4,"title":"THE SOLUTION","textShapes":20}
+{"kind":"textbox","id":"sh/hw3ytsfi","slide":4,"text":"THE SOLUTION","textPreview":"THE SOLUTION","textChars":12,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/u9szydg7","slide":4,"name":"title","text":"WhatsApp stays familiar. Commerce becomes structured.","textPreview":"WhatsApp stays familiar. Commerce becomes structured.","textChars":53,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/fa1grixc","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/s7ahwny1","slide":4,"bbox":[72,137,1136,2]}
+{"kind":"shape","id":"sh/t8jypsfm","slide":4,"bbox":[72,170,340,430]}
+{"kind":"shape","id":"sh/65szudgv","slide":4,"bbox":[82,182,320,406]}
+{"kind":"shape","id":"sh/761gnixg","slide":4,"bbox":[202,188,80,16]}
+{"kind":"textbox","id":"sh/c3eh87e5","slide":4,"text":"Customer","textPreview":"Customer","textChars":8,"textLines":1,"bbox":[98,202,286,24]}
+{"kind":"shape","id":"sh/d4ni1cfq","slide":4,"bbox":[100,255,250,68]}
+{"kind":"textbox","id":"sh/50fmlcr2","slide":4,"text":"Black sneakers size 42 available hain?","textPreview":"Black sneakers size 42 available hain?","textChars":38,"textLines":1,"bbox":[112,262,226,54]}
+{"kind":"shape","id":"sh/4z6ls7ah","slide":4,"bbox":[134,340,245,94]}
+{"kind":"textbox","id":"sh/3yd4j29c","slide":4,"text":"Yes — Navy/Black, size 42 is in stock. Rs. 4,800. Order karna hai?","textPreview":"Yes — Navy/Black, size 42 is in stock. Rs. 4,800. Order karna hai?","textChars":66,"textLines":1,"bbox":[146,347,221,80]}
+{"kind":"shape","id":"sh/ix43qhsr","slide":4,"bbox":[100,458,170,55]}
+{"kind":"textbox","id":"sh/hcvmhcb6","slide":4,"text":"2 pairs. COD.","textPreview":"2 pairs. COD.","textChars":13,"textLines":1,"bbox":[112,465,146,41]}
+{"kind":"textbox","id":"sh/gbmlo7al","slide":4,"text":"Customer-facing assistant","textPreview":"Customer-facing assistant","textChars":25,"textLines":1,"bbox":[72,625,340,28]}
+{"kind":"shape","id":"sh/vad4f2t0","slide":4,"bbox":[470,170,738,430]}
+{"kind":"textbox","id":"sh/u943mxsf","slide":4,"text":"MERCHANT CONTROL","textPreview":"MERCHANT CONTROL","textChars":16,"textLines":1,"bbox":[505,200,250,24]}
+{"kind":"textbox","id":"sh/18zmtwra","slide":4,"text":"One dashboard for the work behind the chat","textPreview":"One dashboard for the work behind the chat","textChars":42,"textLines":1,"bbox":[505,235,625,42]}
+{"kind":"shape","id":"sh/07ql0rap","slide":4,"bbox":[510,311,22,22]}
+{"kind":"textbox","id":"sh/knyxczmd","slide":4,"text":"Catalog","textPreview":"Catalog","textChars":7,"textLines":1,"bbox":[548,305,155,34]}
+{"kind":"textbox","id":"sh/lorel43y","slide":4,"text":"Products, variants, prices, stock","textPreview":"Products, variants, prices, stock","textChars":33,"textLines":1,"bbox":[710,305,425,34]}
+{"kind":"shape","id":"sh/ylgfap47","slide":4,"bbox":[510,375,22,22]}
+{"kind":"textbox","id":"sh/jmpwjuls","slide":4,"text":"Conversations","textPreview":"Conversations","textChars":13,"textLines":1,"bbox":[548,369,155,34]}
+{"kind":"textbox","id":"sh/wjyx8zm1","slide":4,"text":"Context, AI/human mode, history","textPreview":"Context, AI/human mode, history","textChars":31,"textLines":1,"bbox":[710,369,425,34]}
+{"kind":"shape","id":"sh/xk7eh43m","slide":4,"bbox":[510,439,22,22]}
+{"kind":"textbox","id":"sh/ahgf6p4b","slide":4,"text":"Orders","textPreview":"Orders","textChars":6,"textLines":1,"bbox":[548,433,155,34]}
+{"kind":"textbox","id":"sh/bipwfulg","slide":4,"text":"Structured records and status","textPreview":"Structured records and status","textChars":29,"textLines":1,"bbox":[710,433,425,34]}
+{"kind":"shape","id":"sh/ofex4fm5","slide":4,"bbox":[510,503,22,22]}
+{"kind":"textbox","id":"sh/9g7edk3q","slide":4,"text":"Connections","textPreview":"Connections","textChars":11,"textLines":1,"bbox":[548,497,155,34]}
+{"kind":"textbox","id":"sh/rq5gnapc","slide":4,"text":"QR or phone-number pairing","textPreview":"QR or phone-number pairing","textChars":26,"textLines":1,"bbox":[710,497,425,34]}
+{"kind":"shape","id":"sh/qpwfe5or","slide":4,"bbox":[505,563,330,34]}
+{"kind":"textbox","id":"sh/dsnypk7i","slide":4,"text":"Uses the merchant’s existing WhatsApp","textPreview":"Uses the merchant’s existing WhatsApp","textChars":37,"textLines":1,"bbox":[515,565,310,30]}
+{"kind":"textbox","id":"sh/srexgf6x","slide":4,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/16oyuy","slide":4,"text":"Key takeaway: This is more than a chatbot. It understands the request, checks store-scoped data, guides an order, and lets the merchant see and take over the conversation.\nEstimated time: 30 seconds.\nTransition: Here is the full customer-to-merchant loop in one view.\n\n[Sources]\n- dashboard/src/App.jsx\n- dashboard/src/components/ConversationView.jsx\n- dashboard/src/components/OrdersView.jsx\n- dashboard/src/components/QRConnector.jsx"}
+{"kind":"slide","id":"sl/t26od8","slide":5,"title":"HOW IT WORKS","textShapes":23}
+{"kind":"textbox","id":"sh/tsfi94nq","slide":5,"text":"HOW IT WORKS","textPreview":"HOW IT WORKS","textChars":12,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/6p4zyp4z","slide":5,"name":"title","text":"Every reply passes through a truth layer.","textPreview":"Every reply passes through a truth layer.","textChars":41,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/7qd07u5k","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/gv614zm1","slide":5,"bbox":[72,137,1136,2]}
+{"kind":"shape","id":"sh/hwfid4nm","slide":5,"bbox":[212,300,55,4]}
+{"kind":"shape","id":"sh/utoz2p4b","slide":5,"bbox":[405,300,55,4]}
+{"kind":"shape","id":"sh/fux0bu5w","slide":5,"bbox":[598,300,55,4]}
+{"kind":"shape","id":"sh/4z618jmd","slide":5,"bbox":[791,300,55,4]}
+{"kind":"shape","id":"sh/pkzihony","slide":5,"bbox":[984,300,55,4]}
+{"kind":"shape","id":"sh/5wnyhoze","slide":5,"bbox":[72,240,86,86]}
+{"kind":"textbox","id":"sh/4veh8jyt","slide":5,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[72,260,86,40]}
+{"kind":"textbox","id":"sh/3u5gfeh8","slide":5,"text":"Message","textPreview":"Message","textChars":7,"textLines":1,"bbox":[50,350,130,34]}
+{"kind":"textbox","id":"sh/itwz69gn","slide":5,"text":"Text • image • voice","textPreview":"Text • image • voice","textChars":20,"textLines":1,"bbox":[40,390,150,54]}
+{"kind":"shape","id":"sh/dk7yloza","slide":5,"bbox":[265,240,86,86]}
+{"kind":"textbox","id":"sh/sjyhcjy5","slide":5,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[265,260,86,40]}
+{"kind":"textbox","id":"sh/ripgjehk","slide":5,"text":"Understand","textPreview":"Understand","textChars":10,"textLines":1,"bbox":[243,350,130,34]}
+{"kind":"textbox","id":"sh/qxwza9gz","slide":5,"text":"Intent • language","textPreview":"Intent • language","textChars":17,"textLines":1,"bbox":[233,390,150,54]}
+{"kind":"shape","id":"sh/to3y9kz6","slide":5,"bbox":[458,240,86,86]}
+{"kind":"textbox","id":"sh/8nux0zyl","slide":5,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[458,260,86,40]}
+{"kind":"textbox","id":"sh/kjipcjat","slide":5,"text":"Check","textPreview":"Check","textChars":5,"textLines":1,"bbox":[436,350,130,34]}
+{"kind":"textbox","id":"sh/lkrq5obe","slide":5,"text":"Catalog • stock • policy","textPreview":"Catalog • stock • policy","textChars":24,"textLines":1,"bbox":[426,390,150,54]}
+{"kind":"shape","id":"sh/yhg7atcn","slide":5,"bbox":[651,240,86,86]}
+{"kind":"textbox","id":"sh/ji983et8","slide":5,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[651,260,86,40]}
+{"kind":"textbox","id":"sh/8nipg3ap","slide":5,"text":"Reply","textPreview":"Reply","textChars":5,"textLines":1,"bbox":[629,350,130,34]}
+{"kind":"textbox","id":"sh/t8rq98ba","slide":5,"text":"Grounded answer","textPreview":"Grounded answer","textChars":15,"textLines":1,"bbox":[619,390,150,54]}
+{"kind":"shape","id":"sh/6l07etsz","slide":5,"bbox":[844,240,86,86]}
+{"kind":"textbox","id":"sh/7m987ytk","slide":5,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[844,260,86,40]}
+{"kind":"textbox","id":"sh/gb2pk3a1","slide":5,"text":"Act","textPreview":"Act","textChars":3,"textLines":1,"bbox":[822,350,130,34]}
+{"kind":"textbox","id":"sh/hcbqd8bm","slide":5,"text":"Order • handoff","textPreview":"Order • handoff","textChars":15,"textLines":1,"bbox":[812,390,150,54]}
+{"kind":"shape","id":"sh/r6dsj2do","slide":5,"bbox":[1037,240,86,86]}
+{"kind":"textbox","id":"sh/q54bahc3","slide":5,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1037,260,86,40]}
+{"kind":"textbox","id":"sh/d8va5cvu","slide":5,"text":"Control","textPreview":"Control","textChars":7,"textLines":1,"bbox":[1015,350,130,34]}
+{"kind":"textbox","id":"sh/c7mtc7u9","slide":5,"text":"Merchant dashboard","textPreview":"Merchant dashboard","textChars":18,"textLines":1,"bbox":[1005,390,150,54]}
+{"kind":"shape","id":"sh/32dsf2ds","slide":5,"bbox":[214,505,852,84]}
+{"kind":"textbox","id":"sh/2h4b6xc7","slide":5,"text":"The model can phrase. It cannot invent a product, variant, price or stock state.","textPreview":"The model can phrase. It cannot invent a product, variant, price or stock state.","textChars":80,"textLines":1,"bbox":[240,520,800,52]}
+{"kind":"textbox","id":"sh/p4vahcvi","slide":5,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/t26od8","slide":5,"text":"Key takeaway: The deterministic pipeline and store-scoped retrieval stay authoritative. Gemini is optional and constrained to closed candidates for interpretation and phrasing. Voice and image require the configured Gemini gateway path.\nEstimated time: 35 seconds.\nTransition: Now let’s see what this feels like in a one-minute demo.\n\n[Sources]\n- docs/ARCHITECTURE.md\n- docs/AI_PIPELINE.md\n- whatsapp-gateway/src/webhook-handler.js\n- whatsapp-gateway/src/transcription-client.js\n- whatsapp-gateway/src/vision-client.js"}
+{"kind":"slide","id":"sl/yz87um","slide":6,"title":"LIVE STORY","textShapes":19}
+{"kind":"textbox","id":"sh/al0z2lon","slide":6,"text":"LIVE STORY","textPreview":"LIVE STORY","textChars":10,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/xorix0ne","slide":6,"name":"title","text":"One minute from ‘dikhao’ to a recorded order.","textPreview":"One minute from ‘dikhao’ to a recorded order.","textChars":45,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/wnih4v6t","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/jat0za5k","slide":6,"bbox":[72,137,1136,2]}
+{"kind":"shape","id":"sh/i9kz65oz","slide":6,"bbox":[72,168,370,450]}
+{"kind":"shape","id":"sh/5cbi1kna","slide":6,"bbox":[82,180,350,426]}
+{"kind":"shape","id":"sh/kb218f6p","slide":6,"bbox":[217,186,80,16]}
+{"kind":"shape","id":"sh/zep0n6p0","slide":6,"bbox":[100,232,260,55]}
+{"kind":"textbox","id":"sh/edgzu1of","slide":6,"text":"Black shoes dikhao — size 42","textPreview":"Black shoes dikhao — size 42","textChars":28,"textLines":1,"bbox":[112,239,236,41]}
+{"kind":"shape","id":"sh/grqp0jel","slide":6,"bbox":[140,305,245,78]}
+{"kind":"textbox","id":"sh/1szq94v6","slide":6,"text":"Navy/Black sneakers • 42\nRs. 4,800 • In stock","textPreview":"Navy/Black sneakers • 42 | Rs. 4,800 • In stock","textChars":45,"textLines":2,"bbox":[152,312,221,64]}
+{"kind":"shape","id":"sh/epo7y9wf","slide":6,"bbox":[100,410,220,55]}
+{"kind":"textbox","id":"sh/fqx87ed0","slide":6,"text":"2 pairs, COD. Confirm.","textPreview":"2 pairs, COD. Confirm.","textChars":22,"textLines":1,"bbox":[112,417,196,41]}
+{"kind":"shape","id":"sh/ofqp4juh","slide":6,"bbox":[168,490,190,52]}
+{"kind":"textbox","id":"sh/pgzqdov2","slide":6,"text":"Order confirmed ✓","textPreview":"Order confirmed ✓","textChars":17,"textLines":1,"bbox":[180,497,166,38]}
+{"kind":"textbox","id":"sh/2d8729wr","slide":6,"text":"0–10s","textPreview":"0–10s","textChars":5,"textLines":1,"bbox":[510,187,110,30]}
+{"kind":"textbox","id":"sh/3eh8bedw","slide":6,"text":"Ask in Roman Urdu","textPreview":"Ask in Roman Urdu","textChars":17,"textLines":1,"bbox":[640,187,495,38]}
+{"kind":"shape","id":"sh/4j6pszed","slide":6,"bbox":[565,228,2,36]}
+{"kind":"textbox","id":"sh/5kf61kvy","slide":6,"text":"10–22s","textPreview":"10–22s","textChars":6,"textLines":1,"bbox":[510,265,110,30]}
+{"kind":"textbox","id":"sh/l4ne9wja","slide":6,"text":"Show image or product match","textPreview":"Show image or product match","textChars":27,"textLines":1,"bbox":[640,265,495,38]}
+{"kind":"shape","id":"sh/03exgr25","slide":6,"bbox":[565,306,2,36]}
+{"kind":"textbox","id":"sh/z25w7m1k","slide":6,"text":"22–38s","textPreview":"22–38s","textChars":6,"textLines":1,"bbox":[510,343,110,30]}
+{"kind":"textbox","id":"sh/y1cvehkz","slide":6,"text":"Choose size, color, quantity","textPreview":"Choose size, color, quantity","textChars":28,"textLines":1,"bbox":[640,343,495,38]}
+{"kind":"shape","id":"sh/98nedwjm","slide":6,"bbox":[565,384,2,36]}
+{"kind":"textbox","id":"sh/87exkr21","slide":6,"text":"38–50s","textPreview":"38–50s","textChars":6,"textLines":1,"bbox":[510,421,110,30]}
+{"kind":"textbox","id":"sh/n65wbm1g","slide":6,"text":"Confirm price, stock, COD","textPreview":"Confirm price, stock, COD","textChars":25,"textLines":1,"bbox":[640,421,495,38]}
+{"kind":"shape","id":"sh/m5wfihkv","slide":6,"bbox":[565,462,2,36]}
+{"kind":"textbox","id":"sh/hw7ehgji","slide":6,"text":"50–60s","textPreview":"50–60s","textChars":6,"textLines":1,"bbox":[510,499,110,30]}
+{"kind":"textbox","id":"sh/wvyxob2x","slide":6,"text":"Reveal order + human takeover","textPreview":"Reveal order + human takeover","textChars":29,"textLines":1,"bbox":[640,499,495,38]}
+{"kind":"shape","id":"sh/eh8bid0f","slide":6,"bbox":[510,590,625,52]}
+{"kind":"textbox","id":"sh/fihcbyh0","slide":6,"text":"Demo promise: show the workflow — never depend on a live AI flourish.","textPreview":"Demo promise: show the workflow — never depend on a live AI flourish.","textChars":69,"textLines":1,"bbox":[530,598,585,36]}
+{"kind":"textbox","id":"sh/gjatk3il","slide":6,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/yz87um","slide":6,"text":"Suggested narration: ‘The customer asks in Roman Urdu for shoes. The Copilot searches this store’s catalog, not the open internet. If an image is sent, the gateway extracts attributes and still matches only against the catalog. The customer chooses size and quantity, confirms COD, and the order appears in the dashboard. At any point, the merchant can take over.’\nEstimated time: 60 seconds.\nTransition: The demo is backed by a deliberately scoped MVP.\n\n[Sources]\n- backend/tests/test_shop_flow.py\n- backend/tests/test_order_workflow.py\n- backend/tests/test_image_flow.py\n- backend/tests/test_multilingual.py"}
+{"kind":"slide","id":"sl/55tmmx","slide":7,"title":"MVP SCOPE","textShapes":22}
+{"kind":"textbox","id":"sh/u9s7mxw3","slide":7,"text":"MVP SCOPE","textPreview":"MVP SCOPE","textChars":9,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/hc3qxcfu","slide":7,"name":"title","text":"Working core. Honest edges. Clear next steps.","textPreview":"Working core. Honest edges. Clear next steps.","textChars":45,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/gba9o7e9","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/7618r2xs","slide":7,"bbox":[72,137,1136,2]}
+{"kind":"textbox","id":"sh/65s7ixw7","slide":7,"text":"IMPLEMENTED","textPreview":"IMPLEMENTED","textChars":11,"textLines":1,"bbox":[72,175,420,28]}
+{"kind":"shape","id":"sh/t8jqtsfi","slide":7,"bbox":[72,215,396,3]}
+{"kind":"shape","id":"sh/s7apk7ed","slide":7,"bbox":[72,242,16,16]}
+{"kind":"textbox","id":"sh/r2l83mxw","slide":7,"text":"English, Urdu & Roman Urdu text","textPreview":"English, Urdu & Roman Urdu text","textChars":31,"textLines":1,"bbox":[100,232,382,38]}
+{"kind":"shape","id":"sh/q1cruhwb","slide":7,"bbox":[72,297,16,16]}
+{"kind":"textbox","id":"sh/sv2lgzut","slide":7,"text":"Catalog search, variants, price & stock","textPreview":"Catalog search, variants, price & stock","textChars":39,"textLines":1,"bbox":[100,287,382,38]}
+{"kind":"shape","id":"sh/twbmp4by","slide":7,"bbox":[72,352,16,16]}
+{"kind":"textbox","id":"sh/6tk3epcn","slide":7,"text":"Conversation memory and order creation","textPreview":"Conversation memory and order creation","textChars":38,"textLines":1,"bbox":[100,342,382,38]}
+{"kind":"shape","id":"sh/7ut4nut8","slide":7,"bbox":[72,407,16,16]}
+{"kind":"textbox","id":"sh/kr2lczuh","slide":7,"text":"Dashboard, catalog, orders, human takeover","textPreview":"Dashboard, catalog, orders, human takeover","textChars":42,"textLines":1,"bbox":[100,397,382,38]}
+{"kind":"shape","id":"sh/5sbmlkb2","slide":7,"bbox":[72,462,16,16]}
+{"kind":"textbox","id":"sh/ipk3apcb","slide":7,"text":"Multi-store scoping","textPreview":"Multi-store scoping","textChars":19,"textLines":1,"bbox":[100,452,382,38]}
+{"kind":"shape","id":"sh/jqt4jutw","slide":7,"bbox":[72,517,16,16]}
+{"kind":"textbox","id":"sh/w3il8ful","slide":7,"text":"QR and phone-pairing interfaces","textPreview":"QR and phone-pairing interfaces","textChars":31,"textLines":1,"bbox":[100,507,382,38]}
+{"kind":"textbox","id":"sh/xormhkb6","slide":7,"text":"CONFIG-DEPENDENT / PARTIAL","textPreview":"CONFIG-DEPENDENT / PARTIAL","textChars":26,"textLines":1,"bbox":[520,175,350,28]}
+{"kind":"shape","id":"sh/dkj2lg3u","slide":7,"bbox":[520,215,326,3]}
+{"kind":"shape","id":"sh/cja1cbm9","slide":7,"bbox":[520,242,16,16]}
+{"kind":"textbox","id":"sh/bi1kj65o","slide":7,"text":"Gemini-assisted interpretation","textPreview":"Gemini-assisted interpretation","textChars":30,"textLines":1,"bbox":[548,232,312,38]}
+{"kind":"shape","id":"sh/qhsja143","slide":7,"bbox":[520,297,16,16]}
+{"kind":"textbox","id":"sh/pwj2hwni","slide":7,"text":"Image understanding and catalog matching","textPreview":"Image understanding and catalog matching","textChars":40,"textLines":1,"bbox":[548,287,312,38]}
+{"kind":"shape","id":"sh/ova18rmd","slide":7,"bbox":[520,352,16,16]}
+{"kind":"textbox","id":"sh/3u1kfm5s","slide":7,"text":"Voice transcription","textPreview":"Voice transcription","textChars":19,"textLines":1,"bbox":[548,342,312,38]}
+{"kind":"shape","id":"sh/2t8j6147","slide":7,"bbox":[520,407,16,16]}
+{"kind":"textbox","id":"sh/9c32t032","slide":7,"text":"Real-device WhatsApp lifecycle reliability","textPreview":"Real-device WhatsApp lifecycle reliability","textChars":42,"textLines":1,"bbox":[548,397,312,38]}
+{"kind":"textbox","id":"sh/8rulkvmh","slide":7,"text":"PLANNED","textPreview":"PLANNED","textChars":7,"textLines":1,"bbox":[898,175,310,28]}
+{"kind":"shape","id":"sh/6xozexkz","slide":7,"bbox":[898,215,286,3]}
+{"kind":"shape","id":"sh/ryxg72lk","slide":7,"bbox":[898,242,16,16]}
+{"kind":"textbox","id":"sh/sz6hgn25","slide":7,"text":"Production authentication & onboarding","textPreview":"Production authentication & onboarding","textChars":38,"textLines":1,"bbox":[926,232,272,38]}
+{"kind":"shape","id":"sh/t0fy9s3a","slide":7,"bbox":[898,297,16,16]}
+{"kind":"textbox","id":"sh/it4zadkn","slide":7,"text":"Analytics and team access","textPreview":"Analytics and team access","textChars":25,"textLines":1,"bbox":[926,287,272,38]}
+{"kind":"shape","id":"sh/juxg3il8","slide":7,"bbox":[898,352,16,16]}
+{"kind":"textbox","id":"sh/4v6hcn2t","slide":7,"text":"Official WhatsApp Business transport","textPreview":"Official WhatsApp Business transport","textChars":36,"textLines":1,"bbox":[926,342,272,38]}
+{"kind":"shape","id":"sh/5wfy5s3e","slide":7,"bbox":[898,407,16,16]}
+{"kind":"textbox","id":"sh/2p8zmhk7","slide":7,"text":"Merchant pilots and quality dataset","textPreview":"Merchant pilots and quality dataset","textChars":35,"textLines":1,"bbox":[926,397,272,38]}
+{"kind":"shape","id":"sh/3qh0fm1s","slide":7,"bbox":[72,615,1136,40]}
+{"kind":"textbox","id":"sh/nixcbe58","slide":7,"text":"Current verification: 294 backend tests + 85 gateway tests passing on 20 Aug 2026","textPreview":"Current verification: 294 backend tests + 85 gateway tests passing on 20 Aug 2026","textChars":81,"textLines":1,"bbox":[92,618,1096,32]}
+{"kind":"textbox","id":"sh/mhovi9on","slide":7,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/55tmmx","slide":7,"text":"Key takeaway: The MVP has a working, tested commerce core. Media features are implemented and tested at the gateway but depend on Gemini configuration; live Linked Devices behavior still needs real-device pilot hardening.\nEstimated time: 35 seconds.\nTransition: The differentiation comes from combining these capabilities inside one operational loop.\n\n[Sources]\n- Test run performed 2026-08-20: backend 294 passed; gateway 85 passed\n- docs/SECURITY_AND_LIMITATIONS.md\n- dashboard/src/components/QRConnector.jsx"}
+{"kind":"slide","id":"sl/tcdhp5","slide":8,"title":"DIFFERENTIATION","textShapes":50}
+{"kind":"textbox","id":"sh/47yt8f2t","slide":8,"text":"DIFFERENTIATION","textPreview":"DIFFERENTIATION","textChars":15,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/36pcfa18","slide":8,"name":"title","text":"The advantage is the complete commerce loop.","textPreview":"The advantage is the complete commerce loop.","textChars":44,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/i5gb65kn","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/h47ud0j2","slide":8,"bbox":[72,137,1136,2]}
+{"kind":"textbox","id":"sh/g3yt4v2h","slide":8,"text":"CAPABILITY","textPreview":"CAPABILITY","textChars":10,"textLines":1,"bbox":[72,175,245,30]}
+{"kind":"textbox","id":"sh/v2pcbq1c","slide":8,"text":"Manual","textPreview":"Manual","textChars":6,"textLines":1,"bbox":[335,175,180,30]}
+{"kind":"textbox","id":"sh/u1wb2lkr","slide":8,"text":"Generic bot","textPreview":"Generic bot","textChars":11,"textLines":1,"bbox":[545,175,180,30]}
+{"kind":"textbox","id":"sh/t0nu9g36","slide":8,"text":"Web store","textPreview":"Web store","textChars":9,"textLines":1,"bbox":[755,175,180,30]}
+{"kind":"textbox","id":"sh/8fet0v2l","slide":8,"text":"Copilot","textPreview":"Copilot","textChars":7,"textLines":1,"bbox":[965,175,180,30]}
+{"kind":"shape","id":"sh/mt4rm10z","slide":8,"bbox":[72,215,1136,2]}
+{"kind":"shape","id":"sh/7udsf6hk","slide":8,"bbox":[72,227,1136,44]}
+{"kind":"textbox","id":"sh/8vm9obi5","slide":8,"text":"Inside WhatsApp","textPreview":"Inside WhatsApp","textChars":15,"textLines":1,"bbox":[88,230,225,32]}
+{"kind":"textbox","id":"sh/twvahwzq","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[335,230,180,32]}
+{"kind":"textbox","id":"sh/ypkrih0n","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,230,180,32]}
+{"kind":"textbox","id":"sh/zqtsbmh8","slide":8,"text":"—","textPreview":"—","textChars":1,"textLines":1,"bbox":[755,230,180,32]}
+{"kind":"textbox","id":"sh/kr29krit","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[965,230,180,32]}
+{"kind":"textbox","id":"sh/lsbadwze","slide":8,"text":"Multilingual","textPreview":"Multilingual","textChars":12,"textLines":1,"bbox":[88,279,225,32]}
+{"kind":"textbox","id":"sh/a10reh0r","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[335,279,180,32]}
+{"kind":"textbox","id":"sh/b2t87mhc","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,279,180,32]}
+{"kind":"textbox","id":"sh/fu5gzets","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[755,279,180,32]}
+{"kind":"textbox","id":"sh/etwfq9c7","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[965,279,180,32]}
+{"kind":"shape","id":"sh/1wny1oby","slide":8,"bbox":[72,325,1136,44]}
+{"kind":"textbox","id":"sh/gvexsjud","slide":8,"text":"Catalog-grounded","textPreview":"Catalog-grounded","textChars":16,"textLines":1,"bbox":[88,328,225,32]}
+{"kind":"textbox","id":"sh/3ipg3yt4","slide":8,"text":"—","textPreview":"—","textChars":1,"textLines":1,"bbox":[335,328,180,32]}
+{"kind":"textbox","id":"sh/2hgfutcj","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,328,180,32]}
+{"kind":"textbox","id":"sh/pk7y58bu","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[755,328,180,32]}
+{"kind":"textbox","id":"sh/ojyxw3u9","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[965,328,180,32]}
+{"kind":"textbox","id":"sh/jmlwrutk","slide":8,"text":"Image / voice","textPreview":"Image / voice","textChars":13,"textLines":1,"bbox":[88,377,225,32]}
+{"kind":"textbox","id":"sh/i1cfypcz","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[335,377,180,32]}
+{"kind":"textbox","id":"sh/87adsvax","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,377,180,32]}
+{"kind":"textbox","id":"sh/9sju10ri","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[755,377,180,32]}
+{"kind":"textbox","id":"sh/m58vqlsr","slide":8,"text":"✓*","textPreview":"✓*","textChars":2,"textLines":1,"bbox":[965,377,180,32]}
+{"kind":"shape","id":"sh/761czq9c","slide":8,"bbox":[72,423,1136,44]}
+{"kind":"textbox","id":"sh/03qdova1","slide":8,"text":"Structured orders","textPreview":"Structured orders","textChars":17,"textLines":1,"bbox":[88,426,225,32]}
+{"kind":"textbox","id":"sh/l4zux0rm","slide":8,"text":"—","textPreview":"—","textChars":1,"textLines":1,"bbox":[335,426,180,32]}
+{"kind":"textbox","id":"sh/y18bmlsv","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,426,180,32]}
+{"kind":"textbox","id":"sh/z2hcvq9g","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[755,426,180,32]}
+{"kind":"textbox","id":"sh/4zud0fa5","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[965,426,180,32]}
+{"kind":"textbox","id":"sh/503u9krq","slide":8,"text":"Human handoff","textPreview":"Human handoff","textChars":13,"textLines":1,"bbox":[88,475,225,32]}
+{"kind":"textbox","id":"sh/14va1c72","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[335,475,180,32]}
+{"kind":"textbox","id":"sh/g3m9s7qh","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,475,180,32]}
+{"kind":"textbox","id":"sh/f2dsz2pw","slide":8,"text":"—","textPreview":"—","textChars":1,"textLines":1,"bbox":[755,475,180,32]}
+{"kind":"textbox","id":"sh/eh4rqh8b","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[965,475,180,32]}
+{"kind":"shape","id":"sh/p8fa5w7e","slide":8,"bbox":[72,521,1136,44]}
+{"kind":"textbox","id":"sh/o769wrqt","slide":8,"text":"Merchant dashboard","textPreview":"Merchant dashboard","textChars":18,"textLines":1,"bbox":[88,524,225,32]}
+{"kind":"textbox","id":"sh/36ds3mp8","slide":8,"text":"—","textPreview":"—","textChars":1,"textLines":1,"bbox":[335,524,180,32]}
+{"kind":"textbox","id":"sh/254ruh8n","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[545,524,180,32]}
+{"kind":"textbox","id":"sh/dcfa9w7a","slide":8,"text":"△","textPreview":"△","textChars":1,"textLines":1,"bbox":[755,524,180,32]}
+{"kind":"textbox","id":"sh/cb690rqp","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[965,524,180,32]}
+{"kind":"textbox","id":"sh/uh07uto7","slide":8,"text":"Setup complexity","textPreview":"Setup complexity","textChars":16,"textLines":1,"bbox":[88,573,225,32]}
+{"kind":"textbox","id":"sh/vi9o3y5s","slide":8,"text":"Low","textPreview":"Low","textChars":3,"textLines":1,"bbox":[335,573,180,32]}
+{"kind":"textbox","id":"sh/wjipw36d","slide":8,"text":"Medium","textPreview":"Medium","textChars":6,"textLines":1,"bbox":[545,573,180,32]}
+{"kind":"textbox","id":"sh/hkr658ny","slide":8,"text":"High","textPreview":"High","textChars":4,"textLines":1,"bbox":[755,573,180,32]}
+{"kind":"textbox","id":"sh/il07ydo3","slide":8,"text":"Low–med","textPreview":"Low–med","textChars":7,"textLines":1,"bbox":[965,573,180,32]}
+{"kind":"textbox","id":"sh/jm9o7y5o","slide":8,"text":"✓ built-in   △ varies by implementation   — not native   * configuration-dependent","textPreview":"✓ built-in   △ varies by implementation   — not native   * configuration-dependent","textChars":82,"textLines":1,"bbox":[72,646,900,22]}
+{"kind":"textbox","id":"sh/4nip0369","slide":8,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/tcdhp5","slide":8,"text":"Key takeaway: No single feature is the moat. The defensible product is the loop: existing WhatsApp, multilingual intent, merchant-data grounding, structured orders, and human control. Comparison is category-level and intentionally avoids named competitor claims.\nEstimated time: 30 seconds.\nTransition: We start where this loop is most valuable and easiest to prove.\n\n[Sources]\n- Repository capability comparison; no external competitor claims\n- docs/PROJECT_OVERVIEW.md\n- docs/SECURITY_AND_LIMITATIONS.md"}
+{"kind":"slide","id":"sl/kptflr","slide":9,"title":"MARKET","textShapes":17}
+{"kind":"textbox","id":"sh/zexg3u98","slide":9,"text":"MARKET","textPreview":"MARKET","textChars":6,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/kf6hczqd","slide":9,"name":"title","text":"Start narrow. Measure the real opportunity bottom-up.","textPreview":"Start narrow. Measure the real opportunity bottom-up.","textChars":53,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/lgfy5kry","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/mhozep8j","slide":9,"bbox":[72,137,1136,2]}
+{"kind":"textbox","id":"sh/7ixg7u94","slide":9,"text":"BEACHHEAD","textPreview":"BEACHHEAD","textChars":9,"textLines":1,"bbox":[72,180,160,28]}
+{"kind":"textbox","id":"sh/8jqhgzqp","slide":9,"text":"Pakistan’s WhatsApp-first fashion, footwear, cosmetics and home sellers","textPreview":"Pakistan’s WhatsApp-first fashion, footwear, cosmetics and home sellers","textChars":71,"textLines":1,"bbox":[245,177,860,55]}
+{"kind":"shape","id":"sh/9kzy94ra","slide":9,"bbox":[245,245,860,1]}
+{"kind":"textbox","id":"sh/ul8zi98v","slide":9,"text":"EXPANSION","textPreview":"EXPANSION","textChars":9,"textLines":1,"bbox":[72,280,160,28]}
+{"kind":"textbox","id":"sh/vmhgbe90","slide":9,"text":"Instagram-to-WhatsApp merchants, local retailers, service businesses","textPreview":"Instagram-to-WhatsApp merchants, local retailers, service businesses","textChars":68,"textLines":1,"bbox":[245,277,860,55]}
+{"kind":"shape","id":"sh/j2toz6lw","slide":9,"bbox":[245,345,860,1]}
+{"kind":"textbox","id":"sh/i1kn614b","slide":9,"text":"GEOGRAPHY","textPreview":"GEOGRAPHY","textChars":9,"textLines":1,"bbox":[72,380,160,28]}
+{"kind":"textbox","id":"sh/54v61g32","slide":9,"text":"Markets with chat-led selling, multilingual buyers and COD workflows","textPreview":"Markets with chat-led selling, multilingual buyers and COD workflows","textChars":68,"textLines":1,"bbox":[245,377,860,55]}
+{"kind":"shape","id":"sh/k3258bmh","slide":9,"bbox":[245,445,860,1]}
+{"kind":"shape","id":"sh/byt4v6l0","slide":9,"bbox":[72,503,1136,118]}
+{"kind":"textbox","id":"sh/axkn214f","slide":9,"text":"Bottom-up model","textPreview":"Bottom-up model","textChars":15,"textLines":1,"bbox":[100,523,220,28]}
+{"kind":"textbox","id":"sh/x0bmxg3q","slide":9,"text":"Target merchants","textPreview":"Target merchants","textChars":16,"textLines":1,"bbox":[335,518,190,34]}
+{"kind":"textbox","id":"sh/wz254bm5","slide":9,"text":"×","textPreview":"×","textChars":1,"textLines":1,"bbox":[535,518,50,34]}
+{"kind":"textbox","id":"sh/fudo7ql4","slide":9,"text":"Monthly subscription","textPreview":"Monthly subscription","textChars":20,"textLines":1,"bbox":[595,518,250,34]}
+{"kind":"textbox","id":"sh/ut4nel4j","slide":9,"text":"=","textPreview":"=","textChars":1,"textLines":1,"bbox":[855,518,50,34]}
+{"kind":"textbox","id":"sh/q1szmts3","slide":9,"text":"Potential MRR","textPreview":"Potential MRR","textChars":13,"textLines":1,"bbox":[915,518,220,34]}
+{"kind":"textbox","id":"sh/b210vy9o","slide":9,"text":"Research required: size the reachable merchant base, willingness to pay and acquisition channels through pilots.","textPreview":"Research required: size the reachable merchant base, willingness to pay and acquisition channels through pilots.","textChars":112,"textLines":1,"bbox":[100,570,1035,30]}
+{"kind":"textbox","id":"sh/c3aho3at","slide":9,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/kptflr","slide":9,"text":"Key takeaway: We refuse to hide behind a giant global TAM. The immediate opportunity should be calculated from reachable merchants times a tested subscription price. Why now: conversational AI can interpret multilingual chat and media, while merchants already run sales on WhatsApp. The merchant counts and willingness-to-pay remain research questions.\nEstimated time: 30 seconds.\nTransition: The pricing hypothesis is designed to be tested with those pilots.\n\n[Sources]\n- User-provided brief: market framing\n- No external market statistics used; all sizing fields intentionally left as research-required"}
+{"kind":"slide","id":"sl/wz82tx","slide":10,"title":"BUSINESS MODEL","textShapes":21}
+{"kind":"textbox","id":"sh/b29orqps","slide":10,"text":"BUSINESS MODEL","textPreview":"BUSINESS MODEL","textChars":14,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/c3ipkv6d","slide":10,"name":"title","text":"Price against recovered time and captured orders.","textPreview":"Price against recovered time and captured orders.","textChars":49,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/xorqt07i","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/2xg7e18v","slide":10,"bbox":[72,137,1136,2]}
+{"kind":"shape","id":"sh/nypon6pg","slide":10,"bbox":[72,180,340,260]}
+{"kind":"textbox","id":"sh/ozipgb61","slide":10,"text":"STARTER","textPreview":"STARTER","textChars":7,"textLines":1,"bbox":[98,205,288,24]}
+{"kind":"textbox","id":"sh/p0r6pg7m","slide":10,"text":"PKR 3k–5k / mo*","textPreview":"PKR 3k–5k / mo*","textChars":15,"textLines":1,"bbox":[98,250,288,42]}
+{"kind":"textbox","id":"sh/etg7a18z","slide":10,"text":"Small catalog • text workflows • conversation cap","textPreview":"Small catalog • text workflows • conversation cap","textChars":49,"textLines":1,"bbox":[98,320,280,70]}
+{"kind":"shape","id":"sh/fupoj6pk","slide":10,"bbox":[444,180,340,260]}
+{"kind":"textbox","id":"sh/zel0v6hg","slide":10,"text":"GROWTH","textPreview":"GROWTH","textChars":6,"textLines":1,"bbox":[470,205,288,24]}
+{"kind":"textbox","id":"sh/ydcj21gv","slide":10,"text":"PKR 8k–15k / mo*","textPreview":"PKR 8k–15k / mo*","textChars":16,"textLines":1,"bbox":[470,250,288,42]}
+{"kind":"textbox","id":"sh/lgnixwzm","slide":10,"text":"More volume • image/voice • analytics","textPreview":"More volume • image/voice • analytics","textChars":37,"textLines":1,"bbox":[470,320,280,70]}
+{"kind":"shape","id":"sh/0fu14by1","slide":10,"bbox":[816,180,340,260]}
+{"kind":"textbox","id":"sh/n250z6hs","slide":10,"text":"BUSINESS","textPreview":"BUSINESS","textChars":8,"textLines":1,"bbox":[842,205,288,24]}
+{"kind":"textbox","id":"sh/m1wj61g7","slide":10,"text":"Custom*","textPreview":"Custom*","textChars":7,"textLines":1,"bbox":[842,250,288,42]}
+{"kind":"textbox","id":"sh/94n21gzi","slide":10,"text":"Multiple stores • teams • integrations","textPreview":"Multiple stores • teams • integrations","textChars":38,"textLines":1,"bbox":[842,320,280,70]}
+{"kind":"textbox","id":"sh/83e18byx","slide":10,"text":"Pricing hypothesis — validate in pilots","textPreview":"Pricing hypothesis — validate in pilots","textChars":39,"textLines":1,"bbox":[72,465,500,32]}
+{"kind":"textbox","id":"sh/36103mh8","slide":10,"text":"Value","textPreview":"Value","textChars":5,"textLines":1,"bbox":[72,515,130,30]}
+{"kind":"textbox","id":"sh/25szuhgn","slide":10,"text":"Faster replies + fewer manual order errors","textPreview":"Faster replies + fewer manual order errors","textChars":42,"textLines":1,"bbox":[220,515,840,30]}
+{"kind":"textbox","id":"sh/61032p0b","slide":10,"text":"Add-ons","textPreview":"Add-ons","textChars":7,"textLines":1,"bbox":[72,559,130,30]}
+{"kind":"textbox","id":"sh/7294bu1w","slide":10,"text":"Onboarding/setup; usage-based AI/media","textPreview":"Onboarding/setup; usage-based AI/media","textChars":38,"textLines":1,"bbox":[220,559,840,30]}
+{"kind":"textbox","id":"sh/s3il4zih","slide":10,"text":"Guardrail","textPreview":"Guardrail","textChars":9,"textLines":1,"bbox":[72,603,130,30]}
+{"kind":"textbox","id":"sh/t4rmdkj2","slide":10,"text":"Gross margin tracked by message and media cost","textPreview":"Gross margin tracked by message and media cost","textChars":46,"textLines":1,"bbox":[220,603,840,30]}
+{"kind":"textbox","id":"sh/ixg3y50f","slide":10,"text":"* Assumption, not validated pricing","textPreview":"* Assumption, not validated pricing","textChars":35,"textLines":1,"bbox":[930,646,278,22]}
+{"kind":"textbox","id":"sh/jyp47a10","slide":10,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/wz82tx","slide":10,"text":"Key takeaway: Subscription pricing should be anchored to time saved and orders captured, with media usage priced so cost scales safely. These PKR ranges are hypotheses for discovery interviews, not proven willingness to pay. Optional onboarding can fund catalog cleanup and setup.\nEstimated time: 30 seconds.\nTransition: The MVP gives us enough proof to start learning — and a clear risk register for doing it responsibly.\n\n[Sources]\n- Pricing ranges are explicit internal hypotheses from the user brief; external validation required\n- Repository architecture used to infer usage-based AI/media cost drivers"}
+{"kind":"slide","id":"sl/1kiei2","slide":11,"title":"PROOF + ROADMAP","textShapes":27}
+{"kind":"textbox","id":"sh/hs7250ju","slide":11,"text":"PROOF + ROADMAP","textPreview":"PROOF + ROADMAP","textChars":15,"textLines":1,"bbox":[72,40,350,24]}
+{"kind":"textbox","id":"sh/upwjul03","slide":11,"name":"title","text":"Technical validation is strong. Market validation comes next.","textPreview":"Technical validation is strong. Market validation comes next.","textChars":61,"textLines":1,"bbox":[72,70,1110,62]}
+{"kind":"textbox","id":"sh/vq5k3q1o","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1170,45,38,24]}
+{"kind":"shape","id":"sh/8ne1sbix","slide":11,"bbox":[72,137,1136,2]}
+{"kind":"textbox","id":"sh/9on21gji","slide":11,"text":"PROOF TODAY","textPreview":"PROOF TODAY","textChars":11,"textLines":1,"bbox":[72,170,300,28]}
+{"kind":"shape","id":"sh/m1wjq107","slide":11,"bbox":[72,216,15,15]}
+{"kind":"textbox","id":"sh/725kz61c","slide":11,"text":"Dashboard + catalog + order views","textPreview":"Dashboard + catalog + order views","textChars":33,"textLines":1,"bbox":[98,207,450,34]}
+{"kind":"shape","id":"sh/sjil4fih","slide":11,"bbox":[72,264,15,15]}
+{"kind":"textbox","id":"sh/dkr2dkjm","slide":11,"text":"Conversation-aware grounded replies","textPreview":"Conversation-aware grounded replies","textChars":35,"textLines":1,"bbox":[98,255,450,34]}
+{"kind":"shape","id":"sh/dkzet83y","slide":11,"bbox":[72,312,15,15]}
+{"kind":"textbox","id":"sh/cjqxk32d","slide":11,"text":"Order creation, correction, cancellation, status","textPreview":"Order creation, correction, cancellation, status","textChars":48,"textLines":1,"bbox":[98,303,450,34]}
+{"kind":"shape","id":"sh/bihwryls","slide":11,"bbox":[72,360,15,15]}
+{"kind":"textbox","id":"sh/qhofitkn","slide":11,"text":"Multi-store architecture and isolation","textPreview":"Multi-store architecture and isolation","textChars":38,"textLines":1,"bbox":[98,351,450,34]}
+{"kind":"shape","id":"sh/pgfepo32","slide":11,"bbox":[72,408,15,15]}
+{"kind":"textbox","id":"sh/of6xgj2h","slide":11,"text":"294 backend + 85 gateway tests passing","textPreview":"294 backend + 85 gateway tests passing","textChars":38,"textLines":1,"bbox":[98,399,450,34]}
+{"kind":"textbox","id":"sh/3exwnelw","slide":11,"text":"NEXT 90–180 DAYS","textPreview":"NEXT 90–180 DAYS","textChars":16,"textLines":1,"bbox":[620,170,350,28]}
+{"kind":"shape","id":"sh/2dofe9kb","slide":11,"bbox":[620,216,15,15]}
+{"kind":"textbox","id":"sh/9cjy1sj6","slide":11,"text":"Harden pairing and session lifecycle","textPreview":"Harden pairing and session lifecycle","textChars":36,"textLines":1,"bbox":[646,207,510,34]}
+{"kind":"shape","id":"sh/8baxsn2l","slide":11,"bbox":[620,264,15,15]}
+{"kind":"textbox","id":"sh/sr2pkve9","slide":11,"text":"Measure latency, cost and failure recovery","textPreview":"Measure latency, cost and failure recovery","textChars":42,"textLines":1,"bbox":[646,255,510,34]}
+{"kind":"shape","id":"sh/tsbqdgvu","slide":11,"bbox":[620,312,15,15]}
+{"kind":"textbox","id":"sh/6507ilw3","slide":11,"text":"Pilot with real merchant catalogs","textPreview":"Pilot with real merchant catalogs","textChars":33,"textLines":1,"bbox":[646,303,510,34]}
+{"kind":"shape","id":"sh/r698bqdo","slide":11,"bbox":[620,360,15,15]}
+{"kind":"textbox","id":"sh/k3ipgbex","slide":11,"text":"Add onboarding, analytics and production auth","textPreview":"Add onboarding, analytics and production auth","textChars":45,"textLines":1,"bbox":[646,351,510,34]}
+{"kind":"shape","id":"sh/54rq9gvi","slide":11,"bbox":[620,408,15,15]}
+{"kind":"textbox","id":"sh/i107e1wr","slide":11,"text":"Plan official WhatsApp Business migration path","textPreview":"Plan official WhatsApp Business migration path","textChars":46,"textLines":1,"bbox":[646,399,510,34]}
+{"kind":"shape","id":"sh/j29876dc","slide":11,"bbox":[72,492,1136,142]}
+{"kind":"textbox","id":"sh/wzypcre1","slide":11,"text":"RISKS WE DESIGN FOR","textPreview":"RISKS WE DESIGN FOR","textChars":19,"textLines":1,"bbox":[96,510,230,24]}
+{"kind":"textbox","id":"sh/x0rq5wvm","slide":11,"text":"Unofficial transport","textPreview":"Unofficial transport","textChars":20,"textLines":1,"bbox":[96,548,150,30]}
+{"kind":"textbox","id":"sh/zup8fmh8","slide":11,"text":"→ isolate gateway; migrate to official API","textPreview":"→ isolate gateway; migrate to official API","textChars":42,"textLines":1,"bbox":[246,548,195,30]}
+{"kind":"textbox","id":"sh/ytgrm1gn","slide":11,"text":"AI latency / cost","textPreview":"AI latency / cost","textChars":17,"textLines":1,"bbox":[456,548,150,30]}
+{"kind":"textbox","id":"sh/lw7qhwze","slide":11,"text":"→ rule-first path; quotas; observability","textPreview":"→ rule-first path; quotas; observability","textChars":40,"textLines":1,"bbox":[606,548,195,30]}
+{"kind":"textbox","id":"sh/0vy9oryt","slide":11,"text":"Image ambiguity","textPreview":"Image ambiguity","textChars":15,"textLines":1,"bbox":[816,548,150,30]}
+{"kind":"textbox","id":"sh/nyp8j6hk","slide":11,"text":"→ closed catalog + clarify / handoff","textPreview":"→ closed catalog + clarify / handoff","textChars":36,"textLines":1,"bbox":[966,548,195,30]}
+{"kind":"textbox","id":"sh/mxgrq1gz","slide":11,"text":"Catalog quality","textPreview":"Catalog quality","textChars":15,"textLines":1,"bbox":[96,591,150,30]}
+{"kind":"textbox","id":"sh/90ralgza","slide":11,"text":"→ onboarding checks and freshness controls","textPreview":"→ onboarding checks and freshness controls","textChars":42,"textLines":1,"bbox":[246,591,195,30]}
+{"kind":"textbox","id":"sh/8zy9sbyp","slide":11,"text":"Security hardening","textPreview":"Security hardening","textChars":18,"textLines":1,"bbox":[456,591,150,30]}
+{"kind":"textbox","id":"sh/v29sn6hg","slide":11,"text":"→ auth, audit, secrets and threat testing","textPreview":"→ auth, audit, secrets and threat testing","textChars":41,"textLines":1,"bbox":[606,591,195,30]}
+{"kind":"textbox","id":"sh/a10rulgv","slide":11,"text":"WHATSAPP COMMERCE COPILOT","textPreview":"WHATSAPP COMMERCE COPILOT","textChars":25,"textLines":1,"bbox":[72,680,400,18]}
+{"kind":"notes","id":"nt/1kiei2","slide":11,"text":"Key takeaway: The repository proves technical feasibility, not commercial traction or production readiness. The immediate milestone is a small set of merchant pilots with real catalogs and anonymized conversations. Avoid showing unstable items live: fresh QR pairing, external Gemini calls, uncached image matching, or anything that depends on Docker/Internet without a preflight check.\nEstimated time: 45 seconds.\nTransition: We know what to validate, and we know exactly what help accelerates it.\n\n[Sources]\n- Backend test run 2026-08-20: 294 passed\n- Gateway test run 2026-08-20: 85 passed\n- docs/SECURITY_AND_LIMITATIONS.md\n- docs/CURRENT_STATUS.md"}
+{"kind":"slide","id":"sl/s4ny41","slide":12,"title":"THE VISION","textShapes":16}
+{"kind":"textbox","id":"sh/1gvqpk7y","slide":12,"text":"THE VISION","textPreview":"THE VISION","textChars":10,"textLines":1,"bbox":[72,62,260,24]}
+{"kind":"textbox","id":"sh/ed47e587","slide":12,"text":"Make conversational commerce\naccessible to every local merchant.","textPreview":"Make conversational commerce | accessible to every local merchant.","textChars":64,"textLines":2,"bbox":[72,120,900,130]}
+{"kind":"textbox","id":"sh/zed8naps","slide":12,"text":"What we need now","textPreview":"What we need now","textChars":16,"textLines":1,"bbox":[72,318,330,38]}
+{"kind":"textbox","id":"sh/o3m9kfqp","slide":12,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[72,378,44,38]}
+{"kind":"textbox","id":"sh/94fqtk7u","slide":12,"text":"Pilot merchants","textPreview":"Pilot merchants","textChars":15,"textLines":1,"bbox":[130,373,480,34]}
+{"kind":"textbox","id":"sh/m14rip8j","slide":12,"text":"Real catalogs. Real conversations. Honest learning.","textPreview":"Real catalogs. Real conversations. Honest learning.","textChars":51,"textLines":1,"bbox":[130,412,470,48]}
+{"kind":"textbox","id":"sh/n2d8rap4","slide":12,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[655,378,44,38]}
+{"kind":"textbox","id":"sh/472p8vq5","slide":12,"text":"Product + distribution mentors","textPreview":"Product + distribution mentors","textChars":30,"textLines":1,"bbox":[713,373,480,34]}
+{"kind":"textbox","id":"sh/p8bqh07q","slide":12,"text":"Pricing, onboarding and go-to-market pressure tests.","textPreview":"Pricing, onboarding and go-to-market pressure tests.","textChars":52,"textLines":1,"bbox":[713,412,470,48]}
+{"kind":"textbox","id":"sh/hsfaxs32","slide":12,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[72,510,44,38]}
+{"kind":"textbox","id":"sh/g769onmh","slide":12,"text":"Technical / cloud support","textPreview":"Technical / cloud support","textChars":25,"textLines":1,"bbox":[130,505,480,34]}
+{"kind":"textbox","id":"sh/v6xsvilw","slide":12,"text":"Reliability, observability and official API migration.","textPreview":"Reliability, observability and official API migration.","textChars":54,"textLines":1,"bbox":[130,544,470,48]}
+{"kind":"textbox","id":"sh/u54rmd4b","slide":12,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[655,510,44,38]}
+{"kind":"textbox","id":"sh/5wfa1c3y","slide":12,"text":"Early-stage conversations","textPreview":"Early-stage conversations","textChars":25,"textLines":1,"bbox":[713,505,480,34]}
+{"kind":"textbox","id":"sh/4v69s72d","slide":12,"text":"Partners and investors aligned with pilot-first validation.","textPreview":"Partners and investors aligned with pilot-first validation.","textChars":59,"textLines":1,"bbox":[713,544,470,48]}
+{"kind":"shape","id":"sh/3uxsz2ls","slide":12,"bbox":[72,642,1136,2]}
+{"kind":"textbox","id":"sh/itorqxk7","slide":12,"text":"Let’s turn the next customer message into a measurable pilot.","textPreview":"Let’s turn the next customer message into a measurable pilot.","textChars":61,"textLines":1,"bbox":[72,660,920,30]}
+{"kind":"notes","id":"nt/s4ny41","slide":12,"text":"Closing (25 sec): ‘Local merchants do not need another dashboard that customers never visit. They need intelligence inside the conversation where the sale already happens.’ Our ask is specific: pilot merchants, product and distribution mentorship, technical/cloud support, and early-stage conversations — no invented funding target.\nStrong closing line: ‘Let’s turn the next customer message into a measurable pilot.’\nEstimated time: 25 seconds.\n\n[Sources]\n- User-provided brief: vision and ask\n- Repository evidence supports pilot-ready technical validation, not production readiness"}

@@ -101,6 +101,10 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "Okay, the order has been cancelled.",
         "ur": "ٹھیک ہے، آرڈر منسوخ کر دیا گیا ہے۔",
     },
+    "order_cancelled_with_id": {
+        "en": "Okay, your order {order_id} has been cancelled.",
+        "ur": "ٹھیک ہے، آپ کا آرڈر {order_id} منسوخ کر دیا گیا ہے۔",
+    },
     "order_confirm_or_cancel": {
         "en": "Reply Yes to confirm the order, or No to cancel.",
         "ur": "آرڈر کنفرم کرنے کے لیے ہاں، یا منسوخ کرنے کے لیے نہیں لکھیں۔",

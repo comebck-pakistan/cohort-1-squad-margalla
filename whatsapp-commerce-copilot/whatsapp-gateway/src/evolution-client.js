@@ -122,11 +122,15 @@ async function sendText(storeId, to, text) {
         finalMediaUrl = `${config.backendUrl}${mediaUrl}`;
       }
 
+      // Evolution's /message/sendMedia rejects payloads without `mimetype`
+      // and `fileName`; without them images silently fail to deliver.
       const payload = {
         number: to,
         mediatype: 'image',
+        mimetype: 'image/jpeg',
         caption: caption || '',
         media: finalMediaUrl,
+        fileName: 'product.jpg',
         delay: config.sendDelayMs,
       };
 

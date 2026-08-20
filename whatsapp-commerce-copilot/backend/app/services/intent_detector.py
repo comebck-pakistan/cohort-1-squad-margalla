@@ -143,7 +143,17 @@ def detect_intent(normalized_text: str) -> IntentResult:
     has_product = any(m[0] in product_intents for m in matches)
     has_policy = any(m[0] in policy_intents for m in matches)
 
-    if has_product and has_policy:
+    # An explicit lifecycle command wins outright. "cancel my order" also matches
+    # the generic `order` pattern of order_request, and the specificity pass below
+    # lists order_request first — so asking to cancel was being read as a request
+    # to place a new order. Only a bare "cancel" (no other match) worked.
+    lifecycle_match = next(
+        (m for m in matches if m[0] in {'order_cancel', 'order_status'}), None
+    )
+
+    if lifecycle_match:
+        primary_intent, primary_confidence = lifecycle_match[0], lifecycle_match[1]
+    elif has_product and has_policy:
         # Product query with policy questions
         primary_intent = "product_search"
         if 'availability' not in unique_fields:
