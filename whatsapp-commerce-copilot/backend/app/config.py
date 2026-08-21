@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     BACKEND_URL: str = "http://localhost:8000"
     GATEWAY_URL: str = "http://localhost:3001"
 
+    # Public base used to turn a stored relative image path ("/uploads/x.jpg")
+    # into an absolute URL that WhatsApp's media fetcher can actually reach.
+    # Falls back to BACKEND_URL, which is correct inside Docker (the Evolution
+    # container resolves "backend" on the compose network). MUST be set to a
+    # publicly reachable host in production — a localhost value is unreachable
+    # from anywhere but the machine itself.
+    PUBLIC_MEDIA_BASE_URL: Optional[str] = None
+
+    @property
+    def media_base_url(self) -> str:
+        return (self.PUBLIC_MEDIA_BASE_URL or self.BACKEND_URL or "").rstrip("/")
+
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
 

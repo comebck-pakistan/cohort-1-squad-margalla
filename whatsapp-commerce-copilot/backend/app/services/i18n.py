@@ -175,6 +175,52 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "\nA picture for this product has not been uploaded yet.",
         "ur": "\nاس پروڈکٹ کی تصویر ابھی کیٹالاگ میں شامل نہیں کی گئی ہے۔",
     },
+
+    # --- Questions asked in the middle of checkout -------------------------
+    # A customer who asks something while we are collecting their details gets
+    # a real answer AND a reminder of what the order is still waiting for, so
+    # the funnel never repeats a bare prompt at them.
+    "checkout_still_waiting": {
+        "en": "\n\nYour order is still waiting — {prompt}",
+        "ur": "\n\nآپ کا آرڈر ابھی مکمل نہیں ہوا — {prompt}",
+    },
+    "picture_none_saved": {
+        "en": "No picture has been saved for {product} yet.",
+        "ur": "{product} کی کوئی تصویر ابھی محفوظ نہیں کی گئی۔",
+    },
+    "variant_label_available": {
+        "en": "{label} is available for {product}.",
+        "ur": "{product} کے لیے {label} دستیاب ہے۔",
+    },
+    "variant_label_unavailable": {
+        "en": "{label} is not available for {product}. We have: {options}",
+        "ur": "{product} کے لیے {label} دستیاب نہیں۔ ہمارے پاس یہ ہیں: {options}",
+    },
+    "no_size_options": {
+        "en": "{product} comes in one size only.",
+        "ur": "{product} صرف ایک ہی سائز میں آتا ہے۔",
+    },
+    "no_color_options": {
+        "en": "{product} comes in one colour only.",
+        "ur": "{product} صرف ایک ہی رنگ میں آتا ہے۔",
+    },
+    "checkout_name_only": {
+        "en": "Thanks — I have your phone number. Please send your name as well.",
+        "ur": "شکریہ — آپ کا فون نمبر مل گیا۔ اب اپنا نام بھی بھیج دیں۔",
+    },
+    "checkout_name_refused": {
+        "en": ("I understand. I do need a name to place the order — any name you are "
+               "comfortable with works. Reply 'agent' to talk to a person instead, "
+               "or 'cancel' to stop the order."),
+        "ur": ("سمجھ گیا۔ آرڈر کے لیے نام ضروری ہے — آپ کوئی بھی نام دے سکتے ہیں۔ "
+               "کسی نمائندے سے بات کے لیے 'agent' لکھیں، یا آرڈر روکنے کے لیے 'cancel'۔"),
+    },
+    "checkout_name_phone_example": {
+        "en": ("I need your name and phone number to prepare the delivery details. "
+               "You can send them like: Ali Khan, 03001234567"),
+        "ur": ("ڈیلیوری کی تفصیل کے لیے آپ کا نام اور فون نمبر درکار ہے۔ "
+               "اس طرح بھیجیں: علی خان، 03001234567"),
+    },
     "negotiation_note": {
         "en": "\nThis is the catalogue price. I can ask a team member to confirm any special discount.",
         "ur": "\nیہ کیٹالاگ قیمت ہے۔ کسی خاص رعایت کے لیے میں ٹیم ممبر سے تصدیق کروا سکتا ہوں۔",

@@ -104,7 +104,7 @@ async function sendText(storeId, to, text) {
       logger.error({ 
         msg: 'Failed to send text message', 
         storeId, 
-        to,
+        to: maskNumber(to),
         error: error.response?.data || error.message 
       });
       throw error;
@@ -112,25 +112,59 @@ async function sendText(storeId, to, text) {
   }
 
   /**
+   * Mask a customer number for logs. Diagnostics need to distinguish
+   * conversations, never to identify the person.
+   */
+  function maskNumber(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (digits.length < 4) return 'XXXX';
+    return `${digits.slice(0, 4)}${'X'.repeat(Math.max(0, digits.length - 4))}`;
+  }
+
+  /**
+   * Derive the mimetype and filename Evolution needs from a media URL.
+   * Uploads are normalised to JPEG by the backend, but sellers may point at an
+   * externally hosted PNG/WebP, and a wrong mimetype is delivered as nothing.
+   */
+  const MIME_BY_EXT = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+    webp: 'image/webp', avif: 'image/avif', gif: 'image/gif',
+  };
+
+  function describeMedia(url) {
+    const path = String(url).split('?')[0].split('#')[0];
+    const ext = (path.split('.').pop() || '').toLowerCase();
+    const mimetype = MIME_BY_EXT[ext];
+    if (!mimetype) return { mimetype: 'image/jpeg', fileName: 'product.jpg' };
+    return { mimetype, fileName: `product.${ext}` };
+  }
+
+  /**
    * Send a media message (e.g. image) via Evolution API
    */
   async function sendMedia(storeId, to, mediaUrl, caption) {
     try {
-      // If mediaUrl is a relative path like /uploads/..., prepend backend URL
+      // The backend normally sends an absolute URL (it knows the configured
+      // public media base). A relative path still resolves here so older
+      // callers, and any response built before that setting existed, keep
+      // working.
       let finalMediaUrl = mediaUrl;
       if (mediaUrl.startsWith('/')) {
         finalMediaUrl = `${config.backendUrl}${mediaUrl}`;
       }
 
       // Evolution's /message/sendMedia rejects payloads without `mimetype`
-      // and `fileName`; without them images silently fail to deliver.
+      // and `fileName`; without them images silently fail to deliver. The
+      // mimetype must match the actual bytes — declaring a PNG as JPEG makes
+      // WhatsApp drop the picture — so derive it from the URL's extension.
+      const { mimetype, fileName } = describeMedia(finalMediaUrl);
       const payload = {
         number: to,
         mediatype: 'image',
-        mimetype: 'image/jpeg',
+        mimetype,
         caption: caption || '',
         media: finalMediaUrl,
-        fileName: 'product.jpg',
+        fileName,
         delay: config.sendDelayMs,
       };
 
@@ -144,7 +178,7 @@ async function sendText(storeId, to, text) {
       logger.error({ 
         msg: 'Failed to send media message', 
         storeId, 
-        to,
+        to: maskNumber(to),
         mediaUrl,
         error: error.response?.data || error.message 
       });

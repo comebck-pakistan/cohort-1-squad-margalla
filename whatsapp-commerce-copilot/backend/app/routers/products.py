@@ -14,7 +14,8 @@ from app.database import get_db
 from app.models.product import Product, ProductAlias, ProductVariant
 from app.models.category import Category
 from app.models.store import Store
-from app.schemas.api import ProductResponse, MoveProductRequest
+from app.schemas.api import ProductResponse, MoveProductRequest, UpdateProductRequest
+from app.services import catalog_gallery
 
 logger = structlog.get_logger()
 
@@ -69,6 +70,20 @@ def _parse_variants(raw: str | None, default_price: float) -> list[dict]:
             "is_active": bool(entry.get("is_active", True)),
         })
     return normalized
+
+
+def _raise_gallery_errors(fields: dict[str, str]) -> None:
+    """Reject a product the seller asked to make gallery-ready.
+
+    Named per-field so the dashboard can mark the offending inputs instead of
+    showing one opaque message. Enforced here, not only in the form, so a direct
+    API call cannot put an unsendable product into the picture catalogue.
+    """
+    if fields:
+        raise HTTPException(status_code=400, detail={
+            "message": "Product is not ready for the picture catalogue",
+            "fields": fields,
+        })
 
 
 async def _validate_category(db: AsyncSession, store_id: str, category_id: str | None) -> None:
@@ -200,6 +215,9 @@ async def list_products(
         query = query.where(Product.category_id.is_(None))
     elif category_id:
         query = query.where(Product.category_id == category_id)
+    # Stable ordering: without it Postgres returns heap order, so editing a
+    # product makes it jump to the end of the seller's catalog grid.
+    query = query.order_by(Product.created_at, Product.id)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -279,6 +297,13 @@ async def create_product(
     labels: str = Form(None),
     is_active: bool = Form(True),
     variants: str = Form(None),
+    # Colour for the implicit single variant. Products with an explicit
+    # `variants` payload carry their own colours and ignore this.
+    color: str = Form(None),
+    # Opt-in: "this product is meant to be sent as a catalogue picture".
+    # Not stored — readiness is always recomputed from the data. Setting it
+    # makes the required-field rules binding for this request.
+    gallery_ready: bool = Form(False),
     image: UploadFile = File(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -308,7 +333,38 @@ async def create_product(
     if sku and len(sku) > MAX_SKU_LEN:
         raise HTTPException(status_code=400, detail=f"SKU too long (max {MAX_SKU_LEN} characters)")
 
+    color = (color or "").strip() or None
     parsed_variants = _parse_variants(variants, default_price=price)
+
+    if gallery_ready:
+        # Validate the *inputs*, since the rows do not exist yet. These mirror
+        # catalog_gallery.gallery_blockers so a product accepted here is exactly
+        # a product the customer gallery will send.
+        fields: dict[str, str] = {}
+        err = catalog_gallery.name_error(name)
+        if err:
+            fields[catalog_gallery.FIELD_NAME] = err
+        if not category_id:
+            fields[catalog_gallery.FIELD_CATEGORY] = "A saved category is required"
+        if image is None:
+            fields[catalog_gallery.FIELD_IMAGE] = "Product image is required"
+        if not is_active:
+            fields[catalog_gallery.FIELD_ACTIVE] = "Product must be active"
+
+        sellable = [
+            v for v in (parsed_variants or [{"color": color, "price": price, "stock": stock,
+                                             "is_active": True}])
+            if v.get("is_active")
+        ]
+        if not any((v.get("color") or "").strip() for v in sellable):
+            fields[catalog_gallery.FIELD_COLOR] = "Colour is required"
+        err = catalog_gallery.price_error(
+            min((v["price"] for v in sellable if v.get("price")), default=price))
+        if err:
+            fields[catalog_gallery.FIELD_PRICE] = err
+        if not any((v.get("stock") or 0) > 0 for v in sellable):
+            fields[catalog_gallery.FIELD_STOCK] = "At least one variant must be in stock"
+        _raise_gallery_errors(fields)
 
     # Store-level SKU uniqueness across product + variant SKUs (case-insensitive)
     await _assert_unique_store_skus(
@@ -342,6 +398,7 @@ async def create_product(
             # Legacy single-variant behavior: derive one default variant.
             db.add(ProductVariant(
                 product_id=new_product.id,
+                color=color,
                 price=price,
                 stock=stock,
                 is_active=True,
@@ -449,6 +506,96 @@ async def update_variant_stock(
     variant.stock = request.stock
     await db.commit()
     return {"status": "updated", "stock": variant.stock, "variant_id": variant_id}
+
+
+@router.patch("/{product_id}", response_model=ProductResponse)
+async def update_product(
+    store_id: str,
+    product_id: str,
+    request: UpdateProductRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Edit a product's details (store-scoped).
+
+    Only the fields present in the request are changed, so the dashboard can send
+    a partial edit. Validation mirrors ``create_product`` exactly — an edit must
+    not be able to write a value that could not have been created.
+    """
+    result = await db.execute(
+        select(Product)
+        .where(Product.id == product_id, Product.store_id == store_id)
+        .options(selectinload(Product.variants))
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if request.name is not None:
+        name = request.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name cannot be empty")
+        if len(name) > MAX_NAME_LEN:
+            raise HTTPException(status_code=400, detail=f"Name too long (max {MAX_NAME_LEN} characters)")
+        product.name = name
+
+    if request.description is not None:
+        description = request.description.strip() or None
+        if description and len(description) > MAX_DESCRIPTION_LEN:
+            raise HTTPException(status_code=400, detail=f"Description too long (max {MAX_DESCRIPTION_LEN} characters)")
+        product.description = description
+
+    if request.category is not None:
+        category = request.category.strip() or None
+        if category and len(category) > MAX_CATEGORY_LEN:
+            raise HTTPException(status_code=400, detail=f"Category too long (max {MAX_CATEGORY_LEN} characters)")
+        product.category = category
+
+    if request.sku is not None:
+        sku = request.sku.strip() or None
+        if sku and len(sku) > MAX_SKU_LEN:
+            raise HTTPException(status_code=400, detail=f"SKU too long (max {MAX_SKU_LEN} characters)")
+        if sku and sku.lower() != (product.sku or "").lower():
+            await _assert_unique_store_skus(db, store_id, [sku])
+        product.sku = sku
+
+    if request.category_id is not None:
+        category_id = request.category_id.strip() or None
+        await _validate_category(db, store_id, category_id)
+        product.category_id = category_id
+
+    if request.price is not None:
+        if request.price < 0:
+            raise HTTPException(status_code=400, detail="Price cannot be negative")
+        product.base_price = request.price
+        # Keep a single-variant product's price in step with the headline price;
+        # multi-variant products keep their per-variant pricing untouched.
+        active_variants = [v for v in product.variants if v.is_active]
+        if len(active_variants) == 1:
+            active_variants[0].price = request.price
+
+    if request.color is not None:
+        color = request.color.strip() or None
+        # Same rule as price: a single-variant product's colour is the product's
+        # colour. Multi-variant colours are managed per variant elsewhere.
+        active_variants = [v for v in product.variants if v.is_active]
+        if len(active_variants) == 1:
+            active_variants[0].color = color
+        elif color:
+            raise HTTPException(
+                status_code=400,
+                detail="Colour is set per variant on a product with several variants",
+            )
+
+    if request.gallery_ready:
+        # Recompute against the edited product, so an update cannot declare an
+        # incomplete product ready. Flushing first makes the pending changes
+        # visible to the readiness rules without committing them.
+        await db.flush()
+        _raise_gallery_errors(catalog_gallery.gallery_blockers(product))
+
+    await db.commit()
+    await db.refresh(product, ["variants", "aliases"])
+    return product
 
 
 @router.patch("/{product_id}/active")

@@ -3,13 +3,20 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import { Bot, User, Phone, CheckCircle2, AlertCircle } from 'lucide-react';
 
-const ConversationView = ({ storeId }) => {
+const ConversationView = ({ storeId, initialConversationId = null }) => {
   const [conversations, setConversations] = useState([]);
-  const [selectedConvId, setSelectedConvId] = useState(null);
+  const [selectedConvId, setSelectedConvId] = useState(initialConversationId);
   const [convDetails, setConvDetails] = useState(null);
   const [messageInput, setMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Preselect a conversation when the merchant arrived here from an escalation
+  // on the Overview. Without that hand-off this is a no-op, so the normal
+  // "pick from the list" behaviour is unchanged.
+  useEffect(() => {
+    if (initialConversationId) setSelectedConvId(initialConversationId);
+  }, [initialConversationId]);
 
   // Fetch conversations list
   useEffect(() => {
@@ -50,7 +57,7 @@ const ConversationView = ({ storeId }) => {
 
   const scrollToBottom = () => {
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
     }, 100);
   };
 

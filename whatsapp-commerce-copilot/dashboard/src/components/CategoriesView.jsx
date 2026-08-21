@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 import AddProductModal from './AddProductModal';
+import EditProductModal from './EditProductModal';
 
 const IMG_BASE = API_URL.replace('/api', '');
 const imgSrc = (url) => (url && url.startsWith('http') ? url : `${IMG_BASE}${url}`);
@@ -24,6 +25,7 @@ const CategoriesView = ({ storeId }) => {
   const [editing, setEditing] = useState(null); // category id being renamed
   const [editName, setEditName] = useState('');
   const [addProductFor, setAddProductFor] = useState(null); // {id, name} | null
+  const [editProduct, setEditProduct] = useState(null); // product being edited | null
 
   // Guards against late responses from a previously-selected store clobbering
   // the current store's data.
@@ -130,6 +132,18 @@ const CategoriesView = ({ storeId }) => {
     }
   };
 
+  const deleteProduct = async (product) => {
+    // Deleting a product is irreversible and takes its picture with it, so the
+    // name is spelled out in the prompt rather than a generic "this product".
+    if (!window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
+    try {
+      await axios.delete(`${API_URL}/stores/${storeId}/products/${product.id}`);
+      load();
+    } catch {
+      setError('Failed to delete product.');
+    }
+  };
+
   const moveProduct = async (productId, categoryId) => {
     try {
       await axios.patch(`${API_URL}/stores/${storeId}/products/${productId}/category`, {
@@ -174,14 +188,56 @@ const CategoriesView = ({ storeId }) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
             {inCat.map((p) => (
               <div key={p.id} style={cardStyle}>
-                <div style={{ height: '150px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {p.image_url
-                    ? <img src={imgSrc(p.image_url)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: 'rgba(0,0,0,0.15)' }}>No image</span>}
-                </div>
-                <div style={{ padding: '1rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>{p.name}</h3>
-                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                {/* The whole picture/name area opens the product — this is the
+                    "click to check" that previously did nothing. It is a real
+                    button so it is keyboard reachable. */}
+                <button
+                  type="button"
+                  onClick={() => setEditProduct(p)}
+                  aria-label={`Open ${p.name}`}
+                  style={{
+                    display: 'block', width: '100%', padding: 0, border: 'none',
+                    background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <div style={{ height: '150px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {p.image_url
+                      ? <img src={imgSrc(p.image_url)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ color: 'rgba(0,0,0,0.15)' }}>No image</span>}
+                  </div>
+                  <div style={{ padding: '1rem 1rem 0' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>{p.name}</h3>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                      PKR {Number(p.base_price ?? 0).toLocaleString()}
+                    </div>
+                    {/* A product missing a picture, colour or category is
+                        silently invisible in the customer's picture gallery —
+                        say so here rather than letting the seller assume it is
+                        being sent. */}
+                    {p.gallery_ready === false && (
+                      <div style={{
+                        display: 'inline-block', marginTop: '0.4rem',
+                        padding: '0.1rem 0.45rem', borderRadius: '999px',
+                        fontSize: '0.6875rem', fontWeight: 600,
+                        background: 'rgba(234,179,8,0.12)', color: '#a16207',
+                      }}>
+                        Not gallery-ready
+                      </div>
+                    )}
+                  </div>
+                </button>
+                <div style={{ padding: '0.75rem 1rem 1rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                    <button type="button" onClick={() => setEditProduct(p)} style={btnGhost}>
+                      Edit product
+                    </button>
+                    <button type="button" onClick={() => deleteProduct(p)}
+                      aria-label={`Delete ${p.name}`}
+                      style={{ ...btnGhost, color: '#ef4444', borderColor: 'rgba(239,68,68,0.35)' }}>
+                      Delete
+                    </button>
+                  </div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>
                     Move to:{' '}
                     <select aria-label={`Move ${p.name}`}
                       value={p.category_id || ''}
@@ -202,6 +258,12 @@ const CategoriesView = ({ storeId }) => {
             categoryId={addProductFor.id} categoryName={addProductFor.name}
             onClose={() => setAddProductFor(null)}
             onProductAdded={() => { setAddProductFor(null); load(); }} />
+        )}
+
+        {editProduct && (
+          <EditProductModal storeId={storeId} product={editProduct}
+            onClose={() => setEditProduct(null)}
+            onSaved={load} />
         )}
       </div>
     );

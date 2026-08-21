@@ -265,39 +265,75 @@ async function forwardAndReply(storeId, customerNumber, messageText, messageType
         msg: 'Gallery send attempted', storeId, messageId: whatsappMessageId,
         mediaCount: mediaItems.length, matchStatus
       });
-      let sentAny = false;
+      let headerSent = false;
+      const failed = [];
       try {
         if (res.data.message) {
           await evolutionClient.sendText(storeId, customerNumber, res.data.message);
+          headerSent = true;
         }
-        for (const item of mediaItems) {
-          if (!item?.image_url) continue;
-          await evolutionClient.sendMedia(storeId, customerNumber, item.image_url, item.caption || '');
-          sentAny = true;
-        }
-        if (res.data.media_footer) {
-          await evolutionClient.sendText(storeId, customerNumber, res.data.media_footer);
-        }
-        logger.info({
-          msg: 'Gallery send successful', storeId, messageId: whatsappMessageId,
-          mediaCount: mediaItems.length, matchStatus
-        });
       } catch (err) {
         logger.error({
-          msg: 'Gallery send failed', storeId, messageId: whatsappMessageId,
-          mediaCount: mediaItems.length, matchStatus, error: err.message
+          msg: 'Gallery header send failed', storeId, messageId: whatsappMessageId,
+          matchStatus, error: err.message
         });
-        // Fall back to a text list so the customer still gets the numbered
-        // designs they can reply to, instead of silence.
-        const fallback = [
-          sentAny ? null : res.data.message,
-          ...mediaItems.map((i) => i.caption).filter(Boolean),
-          res.data.media_footer,
-        ].filter(Boolean).join('\n');
-        if (fallback) {
-          await evolutionClient.sendText(storeId, customerNumber, fallback);
+      }
+
+      // One unreachable image must not cost the customer the rest of the
+      // gallery, so each send is isolated and the loop continues. Still
+      // sequential — Promise.all would race and WhatsApp would show the
+      // designs out of the order their numbers refer to.
+      for (const item of mediaItems) {
+        if (!item?.image_url) continue;
+        try {
+          await evolutionClient.sendMedia(storeId, customerNumber, item.image_url, item.caption || '');
+        } catch (err) {
+          failed.push(item);
+          logger.error({
+            msg: 'Gallery image send failed', storeId, messageId: whatsappMessageId,
+            productId: item.product_id, variantId: item.variant_id,
+            selectionNumber: item.selection_number, matchStatus, error: err.message
+          });
         }
       }
+
+      // Anything that could not be pictured still reaches the customer as its
+      // numbered caption, so every number in the footer resolves to something
+      // they were actually shown.
+      if (failed.length) {
+        const missed = [
+          headerSent ? null : res.data.message,
+          ...failed.map((i) => i.caption).filter(Boolean),
+        ].filter(Boolean).join('\n\n');
+        if (missed) {
+          try {
+            await evolutionClient.sendText(storeId, customerNumber, missed);
+          } catch (err) {
+            logger.error({
+              msg: 'Gallery text fallback failed', storeId, messageId: whatsappMessageId,
+              matchStatus, error: err.message
+            });
+          }
+        }
+      }
+
+      // Navigation goes out exactly once, after the whole gallery.
+      if (res.data.media_footer) {
+        try {
+          await evolutionClient.sendText(storeId, customerNumber, res.data.media_footer);
+        } catch (err) {
+          logger.error({
+            msg: 'Gallery footer send failed', storeId, messageId: whatsappMessageId,
+            matchStatus, error: err.message
+          });
+        }
+      }
+
+      logger.info({
+        msg: 'Gallery send complete', storeId, messageId: whatsappMessageId,
+        mediaCount: mediaItems.length, delivered: mediaItems.length - failed.length,
+        failedCount: failed.length, matchStatus
+      });
     } else if (res.data.image_url) {
       try {
         logger.info({ 

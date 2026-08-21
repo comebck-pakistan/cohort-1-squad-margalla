@@ -1,7 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { MessageSquare, Package, ShoppingCart, Power, Settings, HelpCircle, Phone } from 'lucide-react';
+import { MessageSquare, Package, ShoppingCart, Power, Settings, HelpCircle, Phone, LayoutDashboard } from 'lucide-react';
 
 const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, setWhatsappStatus, connectedNumber, activeTab, setActiveTab }) => {
   const isConnecting = whatsappStatus === 'initializing' || whatsappStatus === 'waiting_for_qr';
@@ -20,6 +20,7 @@ const Sidebar = ({ currentStore, setCurrentStore, storeData, whatsappStatus, set
   };
 
   const navItems = [
+    { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} /> },
     { id: 'conversations', label: 'Conversations', icon: <MessageSquare size={18} /> },
     { id: 'orders', label: 'Orders', icon: <ShoppingCart size={18} /> },
     { id: 'products', label: 'Catalog', icon: <Package size={18} /> },

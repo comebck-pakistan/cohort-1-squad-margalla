@@ -62,6 +62,23 @@ function setup(backendData, { failMediaAt = null } = {}) {
       }),
   });
 
+  // Capture the gateway's own logging: a swallowed media error is the exact
+  // failure mode these tests exist to prevent, so the log line is part of the
+  // contract, not incidental output. The handler builds its logger at require
+  // time, so winston is stubbed before it is loaded.
+  const logged = [];
+  const winston = require('winston');
+  const realWinston = require.cache[require.resolve('winston')].exports;
+  require.cache[require.resolve('winston')].exports = {
+    ...realWinston,
+    createLogger: () => ({
+      info: () => {},
+      warn: () => {},
+      error: (o) => { logged.push(o); },
+      debug: () => {},
+    }),
+  };
+
   // webhook-handler holds the same axios module object, so patching .post here
   // intercepts its backend call without touching the module graph.
   const axios = require('axios');
@@ -74,8 +91,11 @@ function setup(backendData, { failMediaAt = null } = {}) {
   };
 
   const handler = require('../src/webhook-handler');
-  const restore = () => { axios.post = originalPost; };
-  return { handler, sendLog, restore, overlapped: () => sawOverlap };
+  const restore = () => {
+    axios.post = originalPost;
+    require.cache[require.resolve('winston')].exports = realWinston;
+  };
+  return { handler, sendLog, restore, overlapped: () => sawOverlap, logged };
 }
 
 const GALLERY = {
@@ -83,10 +103,18 @@ const GALLERY = {
   media_footer: "Reply with a number to select a design, 'Back' for colors.",
   intent: 'color_products',
   confidence: 1.0,
+  // Shaped exactly as the backend emits it: absolute URL, the ids needed to map
+  // a numbered reply back to a row, and the mandated multi-line caption.
   media_items: [
-    { product_id: 'p1', image_url: '/uploads/black-1.jpg', caption: '1. Black Cotton Kurta — Rs. 2,500' },
-    { product_id: 'p2', image_url: '/uploads/black-2.jpg', caption: '2. Black Cotton Suit — Rs. 3,200' },
-    { product_id: 'p3', image_url: '/uploads/black-3.jpg', caption: '3. Black Cotton Frock — Rs. 4,000' },
+    { product_id: 'p1', variant_id: 'v1', selection_number: 1,
+      image_url: 'http://backend:8000/uploads/black-1.jpg',
+      caption: '1. Black Cotton Kurta\nCategory: Cotton\nColour: Black\nPrice: PKR 2,500' },
+    { product_id: 'p2', variant_id: 'v2', selection_number: 2,
+      image_url: 'http://backend:8000/uploads/black-2.jpg',
+      caption: '2. Black Cotton Suit\nCategory: Cotton\nColour: Black\nPrice: PKR 3,200' },
+    { product_id: 'p3', variant_id: 'v3', selection_number: 3,
+      image_url: 'http://backend:8000/uploads/black-3.jpg',
+      caption: '3. Black Cotton Frock\nCategory: Cotton\nColour: Black\nPrice: PKR 4,000' },
   ],
 };
 
@@ -119,22 +147,65 @@ test('gallery: sends are sequential, never raced', async () => {
   assert.equal(overlapped(), false);
 });
 
-test('gallery: a failed image falls back to the numbered text list', async () => {
-  const { handler, sendLog, restore } = setup(GALLERY, { failMediaAt: 2 });
+test('gallery: one failed image does not cost the customer the others', async () => {
+  const { handler, sendLog, restore } = setup(GALLERY, { failMediaAt: 1 });
   try {
     await handler.forwardAndReply('store-1', '923001234567', 'Black', 'text', 'msg-3');
   } finally {
     restore();
   }
-  const texts = sendLog.filter((s) => s.kind === 'text').map((s) => s.text);
-  const fallback = texts[texts.length - 1];
-  // Customer still gets every numbered design and the prompt — never silence.
-  for (const item of GALLERY.media_items) {
-    assert.ok(fallback.includes(item.caption), `missing ${item.caption}`);
+  // Image 1 blew up; 2 and 3 must still arrive as pictures.
+  const sentCaptions = sendLog.filter((s) => s.kind === 'media').map((s) => s.caption);
+  assert.deepEqual(sentCaptions, [
+    GALLERY.media_items[1].caption,
+    GALLERY.media_items[2].caption,
+  ]);
+});
+
+test('gallery: the design that could not be pictured still reaches the customer', async () => {
+  const { handler, sendLog, restore } = setup(GALLERY, { failMediaAt: 2 });
+  try {
+    await handler.forwardAndReply('store-1', '923001234567', 'Black', 'text', 'msg-3b');
+  } finally {
+    restore();
   }
-  assert.ok(fallback.includes(GALLERY.media_footer));
+  const texts = sendLog.filter((s) => s.kind === 'text').map((s) => s.text);
+  // Only the design that failed is repeated as text — the two that were
+  // pictured are not sent twice.
+  const missed = texts.find((t) => t.includes(GALLERY.media_items[1].caption));
+  assert.ok(missed, 'the failed design was never mentioned');
+  assert.ok(!missed.includes(GALLERY.media_items[0].caption));
+  assert.ok(!missed.includes(GALLERY.media_items[2].caption));
   // The header already went out on its own; it is not repeated.
-  assert.ok(!fallback.includes(GALLERY.message));
+  assert.ok(!missed.includes(GALLERY.message));
+});
+
+test('gallery: the footer is sent exactly once, after everything else', async () => {
+  const { handler, sendLog, restore } = setup(GALLERY, { failMediaAt: 2 });
+  try {
+    await handler.forwardAndReply('store-1', '923001234567', 'Black', 'text', 'msg-3c');
+  } finally {
+    restore();
+  }
+  const footers = sendLog.filter((s) => s.kind === 'text' && s.text === GALLERY.media_footer);
+  assert.equal(footers.length, 1);
+  assert.equal(sendLog[sendLog.length - 1].text, GALLERY.media_footer);
+});
+
+test('gallery: a media failure is logged with its real reason, never swallowed', async () => {
+  const { handler, restore, logged } = setup(GALLERY, { failMediaAt: 2 });
+  try {
+    await handler.forwardAndReply('store-1', '923001234567', 'Black', 'text', 'msg-3d');
+  } finally {
+    restore();
+  }
+  const err = logged.find((l) => l.msg === 'Gallery image send failed');
+  assert.ok(err, 'no error was logged for the failed image');
+  assert.equal(err.error, 'evolution 400');
+  assert.equal(err.productId, 'p2');
+  assert.equal(err.selectionNumber, 2);
+  // Diagnostics must never carry the customer's number.
+  assert.ok(!JSON.stringify(logged).includes('923001234567'));
 });
 
 test('single-image replies still use the plain sendMedia path', async () => {
@@ -202,4 +273,86 @@ test('sendMedia posts the mimetype and fileName Evolution requires', async () =>
   assert.equal(payload.caption, '1. Black Cotton Kurta');
   // relative catalogue paths are resolved against the backend so Evolution can fetch them
   assert.equal(payload.media, 'http://backend:8000/uploads/black-1.jpg');
+});
+
+test('sendMedia declares the mimetype that matches the file, not always JPEG', async () => {
+  delete require.cache[require.resolve('../src/evolution-client')];
+  delete require.cache[require.resolve('../src/config')];
+  stubModule('../src/config', {
+    evolutionApiUrl: 'http://localhost:8080',
+    evolutionApiKey: 'test-key',
+    backendUrl: 'http://backend:8000',
+    sendDelayMs: 0,
+  });
+
+  const axios = require('axios');
+  const originalCreate = axios.create;
+  const posts = [];
+  axios.create = () => ({
+    post: async (url, payload) => { posts.push(payload); return { data: {} }; },
+    delete: async () => ({ data: {} }),
+    get: async () => ({ data: {} }),
+  });
+  try {
+    const client = require('../src/evolution-client');
+    // Uploads are normalised to JPEG, but a seller may point at a hosted PNG or
+    // WebP — declaring those as image/jpeg makes WhatsApp drop the picture.
+    await client.sendMedia('s', '92300', 'https://cdn.example/a.png', 'c');
+    await client.sendMedia('s', '92300', 'https://cdn.example/b.webp', 'c');
+    await client.sendMedia('s', '92300', 'https://cdn.example/c.jpg?v=2', 'c');
+    await client.sendMedia('s', '92300', 'https://cdn.example/d', 'c');
+  } finally {
+    axios.create = originalCreate;
+    delete require.cache[require.resolve('../src/evolution-client')];
+  }
+
+  assert.deepEqual(posts.map((p) => p.mimetype),
+    ['image/png', 'image/webp', 'image/jpeg', 'image/jpeg']);
+  assert.deepEqual(posts.map((p) => p.fileName),
+    ['product.png', 'product.webp', 'product.jpg', 'product.jpg']);
+  // An absolute URL is passed through untouched.
+  assert.equal(posts[0].media, 'https://cdn.example/a.png');
+});
+
+test('a media failure never logs the customer\'s full number', async () => {
+  delete require.cache[require.resolve('../src/evolution-client')];
+  delete require.cache[require.resolve('../src/config')];
+  stubModule('../src/config', {
+    evolutionApiUrl: 'http://localhost:8080',
+    evolutionApiKey: 'test-key',
+    backendUrl: 'http://backend:8000',
+    sendDelayMs: 0,
+  });
+
+  const logged = [];
+  const winston = require('winston');
+  const realWinston = require.cache[require.resolve('winston')].exports;
+  require.cache[require.resolve('winston')].exports = {
+    ...realWinston,
+    createLogger: () => ({
+      info: () => {}, warn: () => {}, debug: () => {},
+      error: (o) => { logged.push(o); },
+    }),
+  };
+
+  const axios = require('axios');
+  const originalCreate = axios.create;
+  axios.create = () => ({
+    post: async () => { throw new Error('evolution 404'); },
+    delete: async () => ({ data: {} }),
+    get: async () => ({ data: {} }),
+  });
+  try {
+    const client = require('../src/evolution-client');
+    await assert.rejects(() =>
+      client.sendMedia('s', '923001234567', '/uploads/a.jpg', 'c'));
+  } finally {
+    axios.create = originalCreate;
+    require.cache[require.resolve('winston')].exports = realWinston;
+    delete require.cache[require.resolve('../src/evolution-client')];
+  }
+
+  const dump = JSON.stringify(logged);
+  assert.ok(!dump.includes('923001234567'), 'the full number reached the logs');
+  assert.ok(dump.includes('9230XXXXXXX'), `expected a masked number, got ${dump}`);
 });

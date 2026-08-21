@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import ConversationView from './components/ConversationView';
 import OrdersView from './components/OrdersView';
 import CategoriesView from './components/CategoriesView';
+import DashboardOverview from './components/DashboardOverview';
 import QRConnector from './components/QRConnector';
 import { Bell, UserCircle } from 'lucide-react';
 import './index.css';
@@ -14,7 +15,15 @@ function App() {
   const [storeData, setStoreData] = useState(null);
   const [whatsappStatus, setWhatsappStatus] = useState('disconnected');
   const [connectedNumber, setConnectedNumber] = useState(null);
-  const [activeTab, setActiveTab] = useState('orders'); // Matching the screenshot default
+  const [activeTab, setActiveTab] = useState('overview'); // Overview is the merchant landing page
+  // Set when the merchant opens a specific escalation from the Overview so the
+  // Conversations view can preselect it. Cleared once handed over.
+  const [pendingConversationId, setPendingConversationId] = useState(null);
+
+  const openConversation = (conversationId) => {
+    setPendingConversationId(conversationId || null);
+    setActiveTab('conversations');
+  };
 
   // Fetch store details & whatsapp status
   useEffect(() => {
@@ -106,7 +115,8 @@ function App() {
         }}>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-              {activeTab === 'conversations' ? 'Conversations' :
+              {activeTab === 'overview' ? 'Overview' :
+               activeTab === 'conversations' ? 'Conversations' :
                activeTab === 'orders' ? 'Orders' : 'Products & Catalog'}
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
@@ -129,7 +139,12 @@ function App() {
             <QRConnector storeId={currentStore} status={whatsappStatus} setStatus={setWhatsappStatus} />
           ) : (
             <>
-              {activeTab === 'conversations' && <ConversationView storeId={currentStore} />}
+              {activeTab === 'overview' && (
+                <DashboardOverview storeId={currentStore} onOpenConversation={openConversation} />
+              )}
+              {activeTab === 'conversations' && (
+                <ConversationView storeId={currentStore} initialConversationId={pendingConversationId} />
+              )}
               {activeTab === 'orders' && <OrdersView storeId={currentStore} />}
               {activeTab === 'products' && <CategoriesView storeId={currentStore} />}
             </>

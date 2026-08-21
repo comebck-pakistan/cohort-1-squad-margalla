@@ -55,6 +55,13 @@ describe('OrdersView', () => {
     await waitFor(() => expect(screen.getByText('No orders found')).toBeInTheDocument());
   });
 
+  it('does not present an old command as the customer name', async () => {
+    axios.get.mockResolvedValue({ data: [{ ...ORDER, customer_name: 'Order' }] });
+    render(<OrdersView storeId="s1" />);
+    await waitFor(() => expect(screen.getByText('Name not provided')).toBeInTheDocument());
+    expect(screen.queryByText('Order')).toBeNull();
+  });
+
   it('"Sync Orders Now" actually refetches (it used to be a dead button)', async () => {
     axios.get.mockResolvedValue({ data: [] });
     render(<OrdersView storeId="s1" />);

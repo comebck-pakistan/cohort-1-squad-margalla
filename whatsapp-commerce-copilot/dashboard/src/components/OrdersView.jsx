@@ -6,6 +6,17 @@ import { ShoppingBag, RefreshCw } from 'lucide-react';
 // Orders arrive over WhatsApp while the seller is looking at this screen, so the
 // list refreshes on its own instead of only on mount.
 const REFRESH_MS = 15000;
+const INVALID_STORED_NAMES = new Set([
+  'order', 'confirmed', 'confirm', 'yes', 'no', 'ok', 'okay', 'cod',
+  'hello', 'hi', 'send picture', 'name not provided',
+]);
+
+export const displayCustomerName = (value) => {
+  const name = String(value || '').trim();
+  return !name || INVALID_STORED_NAMES.has(name.toLowerCase())
+    ? 'Name not provided'
+    : name;
+};
 
 const OrdersView = ({ storeId }) => {
   const [orders, setOrders] = useState([]);
@@ -120,7 +131,7 @@ const OrdersView = ({ storeId }) => {
                   <tr key={order.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
                     <td style={{ padding: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{order.id.substring(0, 8)}...</td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{order.customer_name}</div>
+                      <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{displayCustomerName(order.customer_name)}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{order.customer_phone}</div>
                     </td>
                     <td style={{ padding: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
