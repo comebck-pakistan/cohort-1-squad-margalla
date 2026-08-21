@@ -125,6 +125,25 @@ class AIIntentSchema(BaseModel):
         default=0.8, ge=0.0, le=1.0,
         description="Confidence of the language detection",
     )
+    expected_field_valid: Optional[bool] = Field(
+        default=None,
+        description="Whether the message supplies the order field currently being requested",
+    )
+    customer_name: Optional[str] = Field(
+        default=None,
+        description="Customer's actual name, only when customer_details are requested",
+    )
+    customer_phone: Optional[str] = Field(
+        default=None,
+        description="Customer's phone, only when customer_details are requested",
+    )
+    is_refusal: Optional[bool] = Field(
+        default=None,
+        description=(
+            "True when the customer is declining to supply the requested order "
+            "field rather than answering it"
+        ),
+    )
 
 
 class AIProvider(ABC):
@@ -136,7 +155,9 @@ class AIProvider(ABC):
         ...
 
     @abstractmethod
-    async def classify_intent(self, message: str, store_language: str) -> AIIntentSchema | None:
+    async def classify_intent(
+        self, message: str, store_language: str, expected_order_field: str | None = None
+    ) -> AIIntentSchema | None:
         """Classify user intent and extract product query."""
         ...
 
@@ -215,7 +236,9 @@ class MockAIProvider(AIProvider):
             confidence=0.3,
         )
 
-    async def classify_intent(self, message: str, store_language: str) -> AIIntentSchema | None:
+    async def classify_intent(
+        self, message: str, store_language: str, expected_order_field: str | None = None
+    ) -> AIIntentSchema | None:
         """Mock classification using standard regex rules."""
         from app.services.intent_detector import detect_intent
         from app.services.entity_extractor import extract_entities
@@ -304,7 +327,9 @@ class OpenRouterProvider(AIProvider):
             logger.error("openrouter_unexpected_error", error=str(e))
             return self._fallback_response(context)
 
-    async def classify_intent(self, message: str, store_language: str) -> AIIntentSchema | None:
+    async def classify_intent(
+        self, message: str, store_language: str, expected_order_field: str | None = None
+    ) -> AIIntentSchema | None:
         """Call OpenRouter API for intent classification."""
         if not self.api_key:
             return None
@@ -321,6 +346,14 @@ Rules:
 4. Extract requested fields into the requested_fields list (e.g. ["price", "images"]).
 5. If the user refers to a previously shown product (e.g., "the first one", "it", "the black one"), set the 'reference' field.
 6. NEVER promise future actions like "fetching pictures", "sending shortly", or "main bhej rahi hoon".
+7. The user prompt includes the order field currently expected, or "none".
+   For customer_details, expected_field_valid is true only when the message contains
+   a plausible person's name; a refusal, command, acknowledgement, product, or
+   address is not a name. Extract customer_name/customer_phone when supplied.
+   For address, require a plausible delivery address. For payment_method, require
+   a clear payment choice. Leave validation fields null when the expected field is none.
+   Set is_refusal true when the customer declines to supply the requested field
+   instead of answering it.
 
 Also detect the customer's language:
 - input_language: 'english' | 'roman_urdu' | 'urdu_script' | 'mixed' | 'unknown'
@@ -330,9 +363,13 @@ Also detect the customer's language:
 - language_confidence: float 0–1.
 
 Return a JSON object with: intent, product_query, entities (category, style, color, size), reference, confidence,
-input_language, response_language, language_confidence."""
+input_language, response_language, language_confidence, expected_field_valid,
+customer_name, customer_phone, is_refusal."""
 
-        user_prompt = f'Customer message: "{message}"\nReturn valid JSON.'
+        user_prompt = (
+            f'Expected order field: {expected_order_field or "none"}\n'
+            f'Customer message: "{message}"\nReturn valid JSON.'
+        )
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -488,9 +525,24 @@ class LangChainProvider(AIProvider):
                 "Roman Urdu uses Latin letters for Urdu words (e.g. mujhe, dikhao, chahiye, kalay jootay, salam). "
                 "Urdu script uses Arabic/Urdu Unicode characters.\n"
                 "- response_language: 'en' if input is purely English, 'ur' if input is Urdu script OR Roman Urdu OR mixed with Urdu words.\n"
-                "- language_confidence: float 0–1.",
+                "- language_confidence: float 0–1."
+                "\nThe application may also supply expected_order_field. If it is "
+                "'customer_details', set expected_field_valid true only when the message "
+                "contains a plausible person's name (not an action, acknowledgement, "
+                "address, product, or refusal). Extract customer_name and customer_phone "
+                "when present. If the requested value is missing, set false. For 'address', "
+                "set expected_field_valid true only for a plausible delivery address. "
+                "For 'payment_method', accept only a clear supported payment choice. "
+                "Set is_refusal true when the customer is declining to give the "
+                "requested field (e.g. 'I don't want to give my name', 'naam nahi dena') "
+                "rather than answering it. "
+                "When expected_order_field is 'none', leave these validation fields null.",
             ),
-            ("human", "Customer message:\n{customer_message}"),
+            (
+                "human",
+                "Expected order field: {expected_order_field}\n"
+                "Customer message:\n{customer_message}",
+            ),
         ])
         response_prompt = ChatPromptTemplate.from_messages([
             (
@@ -535,7 +587,7 @@ class LangChainProvider(AIProvider):
         return bool(self.api_key and self.intent_chain and self.response_chain)
 
     async def classify_intent(
-        self, message: str, store_language: str
+        self, message: str, store_language: str, expected_order_field: str | None = None
     ) -> AIIntentSchema | None:
         if not self.intent_chain:
             return None
@@ -546,6 +598,7 @@ class LangChainProvider(AIProvider):
             result = await self.intent_chain.ainvoke({
                 "allowed_intents": self._ALLOWED_INTENTS,
                 "customer_message": message,
+                "expected_order_field": expected_order_field or "none",
             })
             logger.info(
                 "langchain_intent_success",

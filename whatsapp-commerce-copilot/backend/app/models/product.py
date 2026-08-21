@@ -35,6 +35,20 @@ class Product(Base):
     aliases: Mapped[list["ProductAlias"]] = relationship("ProductAlias", back_populates="product", lazy="selectin", cascade="all, delete-orphan")
     variants: Mapped[list["ProductVariant"]] = relationship("ProductVariant", back_populates="product", lazy="selectin", cascade="all, delete-orphan")
 
+    # --- Derived catalogue-picture readiness -------------------------------
+    # Computed, never stored: the rules live in one place (services.catalog_gallery)
+    # and a stored flag would go stale the moment a variant sold out. Exposed on
+    # ProductResponse so the seller UI can label an incomplete product.
+
+    @property
+    def gallery_blockers(self) -> dict[str, str]:
+        from app.services.catalog_gallery import gallery_blockers
+        return gallery_blockers(self)
+
+    @property
+    def gallery_ready(self) -> bool:
+        return not self.gallery_blockers
+
 
 class ProductAlias(Base):
     __tablename__ = "product_aliases"

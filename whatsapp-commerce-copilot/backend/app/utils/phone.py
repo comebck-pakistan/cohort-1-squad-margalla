@@ -44,3 +44,28 @@ def normalize_phone_number(raw: str | None) -> str | None:
     if not _DIGITS_ONLY.match(stripped) or not (8 <= len(stripped) <= 15):
         raise ValueError(PHONE_HELP_MESSAGE)
     return stripped
+
+
+def mask_phone_number(raw: str | None) -> str | None:
+    """Mask a customer number for display on the merchant dashboard.
+
+    Keeps enough to recognise a returning customer (country code + operator
+    prefix) while never exposing the subscriber digits, e.g.
+    ``923001234567`` -> ``+92 300 XXXXXXX``.
+
+    Returns ``None`` when there is nothing usable to mask. Anything that is not
+    a plain international number is masked wholesale rather than echoed back.
+    """
+    if raw is None:
+        return None
+    s = _SEPARATORS.sub("", str(raw).strip())
+    if s.startswith("+"):
+        s = s[1:]
+    # Strip a WhatsApp JID suffix if one slipped through (e.g. "92300...@s.whatsapp.net").
+    s = s.split("@", 1)[0]
+    if not s:
+        return None
+    if not _DIGITS_ONLY.match(s) or len(s) < 8:
+        return "XXXXXXX"
+    country, operator, subscriber = s[:2], s[2:5], s[5:]
+    return f"+{country} {operator} {'X' * len(subscriber)}"

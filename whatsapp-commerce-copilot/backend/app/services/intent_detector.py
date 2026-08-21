@@ -41,8 +41,16 @@ INTENT_PATTERNS: list[tuple[str, str, float, list[str]]] = [
     (r'\b(i\s*want|mujhe\s*chahiye|add\s*to\s*cart)\b', 'order_request', 0.8, []),
 
     # Product conversation actions
-    (r'\b(send|share|show|bhej|dikha)\w*\s*(me\s*)?(pics?|photos?|images?|tasveer|tasveerain)\b', 'picture_request', 0.94, ['image']),
-    (r'\b(pics?|photos?|images?|tasveer|tasveerain)\b', 'picture_request', 0.9, ['image']),
+    # "picture" itself was missing (pics? does not match it) and no determiner was
+    # allowed between the verb and the noun, so the single most common phrasing —
+    # "send me the picture" — scored unknown 0.0 and the request was lost whenever
+    # the LLM was unavailable to catch it.
+    (r'\b(send|share|show|bhej|dikha)\w*\s*(me\s*)?(the|this|that|a|its?|iski|is\s*ki|us\s*ki|uski)?\s*(pics?|pictures?|photos?|photu|images?|tasveer|tasweer|tasveerain)\b', 'picture_request', 0.94, ['image']),
+    (r'\b(pics?|pictures?|photos?|photu|images?|tasveer|tasweer|tasveerain)\b', 'picture_request', 0.9, ['image']),
+    # Urdu script: the assistant replies in Urdu script, so customers answer in
+    # it. Without these the deterministic fallback cannot see a picture request
+    # at all when the model is unavailable. No \b — it does not apply to Urdu.
+    (r'(تصویر|تصاویر|تصویریں|فوٹو)', 'picture_request', 0.9, ['image']),
     (r'\b(discount|kam\s*kar|final\s*price|best\s*price|negotiat|thora\s*kam)\w*\b', 'negotiation', 0.9, ['price']),
     (r'\b(compare|comparison|farq|difference|versus|vs)\b', 'comparison', 0.85, []),
     (r'\b(alternative|alternatives|aur\s*dikhao|kuch\s*aur|similar|same\s*jaisa)\b', 'alternatives', 0.82, []),

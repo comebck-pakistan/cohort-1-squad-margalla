@@ -17,6 +17,7 @@ from app.models.store import Store
 from app.models.category import Category
 from app.models.conversation import Conversation
 from app.models.product import Product, ProductVariant
+from app.services.catalog_gallery import resolve_media_url
 from sqlalchemy import select
 
 pytestmark = pytest.mark.asyncio
@@ -155,13 +156,18 @@ async def test_colour_selection_returns_numbered_images(client, db_session):
     media = r["media_items"]
     assert len(media) == 2
     assert [m["caption"] for m in media] == [
-        "1. Black Cotton Kurta — Rs. 2,500",
-        "2. Black Cotton Suit — Rs. 3,200",
+        "1. Black Cotton Kurta\nCategory: Cotton\nColour: Black\nPrice: PKR 2,500",
+        "2. Black Cotton Suit\nCategory: Cotton\nColour: Black\nPrice: PKR 3,200",
     ]
+    # WhatsApp fetches the picture itself, so the URL must be absolute.
     assert [m["image_url"] for m in media] == [
-        "/uploads/black-cotton-1.jpg", "/uploads/black-cotton-2.jpg",
+        resolve_media_url("/uploads/black-cotton-1.jpg"),
+        resolve_media_url("/uploads/black-cotton-2.jpg"),
     ]
-    assert all(m["product_id"] for m in media)
+    assert all(m["image_url"].startswith("http") for m in media)
+    assert all(m["product_id"] and m["variant_id"] for m in media)
+    # the number in the caption is carried explicitly for selection mapping
+    assert [m["selection_number"] for m in media] == [1, 2]
     # never leaks the other colours in this category
     joined = r["message"] + " ".join(m["caption"] for m in media)
     assert "Blue Cotton Kurta" not in joined and "White Cotton Suit" not in joined
@@ -177,7 +183,8 @@ async def test_colour_selection_by_number_matches_the_shown_menu(client, db_sess
     n = next(l.split(".")[0] for l in menu["message"].splitlines() if l.strip().endswith("Blue"))
     r = await _msg(client, s.id, n.strip(), cust)
     assert r["intent"] == "color_products"
-    assert [m["caption"] for m in r["media_items"]] == ["1. Blue Cotton Kurta — Rs. 2,400"]
+    assert [m["caption"] for m in r["media_items"]] == [
+        "1. Blue Cotton Kurta\nCategory: Cotton\nColour: Blue\nPrice: PKR 2,400"]
 
 
 async def test_colour_flow_never_crosses_stores(client, db_session):
@@ -264,7 +271,8 @@ async def test_products_without_pictures_stay_in_the_text(client, db_session):
 
     await _msg(client, s.id, "Cotton", cust)
     r = await _msg(client, s.id, "Black", cust)
-    assert [m["caption"] for m in r["media_items"]] == ["1. Pictured Kurta — Rs. 2,000"]
+    assert [m["caption"] for m in r["media_items"]] == [
+        "1. Pictured Kurta\nCategory: Cotton\nColour: Black\nPrice: PKR 2,000"]
     assert "2. Unpictured Kurta" in r["message"]   # nothing silently dropped
     # and the text entry is still selectable by its number
     sel = await _msg(client, s.id, "2", cust)

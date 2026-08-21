@@ -5,6 +5,7 @@ follow-ups, runs grounded retrieval, advances orders, optionally asks the AI
 provider to phrase ambiguous results, and persists state through the caller's
 transaction.
 """
+import inspect
 import re
 from datetime import datetime
 
@@ -23,6 +24,9 @@ CATEGORY_PAGE_SIZE = 5
 # Number of product images sent in one gallery reply. WhatsApp treats a burst of
 # media as spam, so a colour's designs are paged like any other menu.
 MEDIA_PAGE_SIZE = 5
+import structlog
+
+from app.services import catalog_gallery
 from app.services.ai_provider import AIRequestContext, KNOWN_INTENTS, get_ai_provider
 from app.services.conversation_manager import ConversationManager
 from app.services.entity_extractor import SIZE_NORMALIZE, extract_entities
@@ -33,6 +37,8 @@ from app.services.message_processor import MessageProcessor
 from app.services.order_manager import OrderManager
 from app.services.response_builder import ProcessedResponse
 from app.services.text_normalizer import normalize_color, normalize_text
+
+logger = structlog.get_logger()
 
 
 class ConversationController:
@@ -59,8 +65,39 @@ class ConversationController:
         language = lang_detection.input_language
         intent = detect_intent(normalized)
         entities = extract_entities(normalized, language)
+        # Kept for the routing diagnostics below: once the LLM classification is
+        # merged in, the original deterministic verdict is no longer recoverable,
+        # and the two disagreeing is exactly what we need to see when a turn is
+        # routed the wrong way.
+        deterministic_intent = intent.intent
+        deterministic_confidence = intent.confidence
 
-        llm_classification = await get_ai_provider().classify_intent(message, store_language)
+        expected_order_field = {
+            "QUANTITY_SELECTED": "customer_details",
+            "CUSTOMER_DETAILS_REQUIRED": "address",
+            "ADDRESS_REQUIRED": "payment_method",
+        }.get(conversation.order_stage)
+        provider = get_ai_provider()
+        # A classification failure must degrade to the deterministic path, not
+        # take the turn down with it: providers normally swallow their own
+        # errors, but a transport-level fault (DNS, TLS, a hard timeout) escapes
+        # and would otherwise turn every message into an error reply for as long
+        # as the outage lasted.
+        llm_classification = None
+        try:
+            classify_params = inspect.signature(provider.classify_intent).parameters
+            if "expected_order_field" in classify_params:
+                llm_classification = await provider.classify_intent(
+                    message, store_language, expected_order_field
+                )
+            else:  # Compatibility for custom providers written against the old API.
+                llm_classification = await provider.classify_intent(message, store_language)
+        except Exception as exc:
+            logger.warning(
+                "intent_classification_failed",
+                store_id=store_id, provider=type(provider).__name__,
+                error=type(exc).__name__,
+            )
         if llm_classification:
             # Only let the LLM override the deterministic intent when it names a
             # KNOWN intent AND is at least as confident as the deterministic
@@ -252,12 +289,46 @@ class ConversationController:
         self.conversations.apply_context(conversation, response)
         await db.flush()
 
+        # --- Intent precedence during an active checkout ---------------------
+        # A customer part-way through an order is still a person having a
+        # conversation: they ask for the picture, the price, whether medium is in
+        # stock. Before this guard, EVERY message received during checkout fell
+        # through _advance_order to get_next_prompt(), which replaced the real
+        # answer with the current order prompt — so the assistant looked
+        # hard-coded and simply repeated itself.
+        #
+        # An interrupt is answered from persisted catalogue rows, leaves every
+        # piece of order state untouched, and ends with a reminder of what the
+        # order is still waiting for.
+        interrupt = await self._checkout_interrupt(
+            db, conversation, message, intent.intent, entities, response,
+            products, response_lang, llm_classification,
+        )
+        if interrupt is not None:
+            self._log_order_routing(
+                store_id, conversation, expected_order_field,
+                deterministic_intent, deterministic_confidence,
+                llm_classification, intent.intent, "interrupt",
+            )
+            await db.flush()
+            if interrupt.needs_human:
+                await self._create_handoff(db, conversation, interrupt, message)
+            return interrupt
+
         order_response = await self._advance_order(
             db, conversation, message, intent.intent, entities, response,
-            products, response_lang, customer_number
+            products, response_lang, customer_number, llm_classification
         )
         if order_response:
             response = order_response
+
+        if conversation.order_stage not in ("BROWSING", "ORDER_CREATED") or order_response:
+            self._log_order_routing(
+                store_id, conversation, expected_order_field,
+                deterministic_intent, deterministic_confidence,
+                llm_classification, intent.intent,
+                "order_field" if order_response else "normal",
+            )
 
         # Image message with no catalog match: reply honestly with what was seen
         # instead of a generic "not found" or an AI rephrase that could imply
@@ -804,15 +875,47 @@ class ConversationController:
         conversation.add_recently_shown_products([p.id for p in page])
 
         media_items, text_lines = [], []
-        for it, p in zip(items, page):
-            price = self._display_price(p, color)
-            caption = f"{it['n']}. {p.name}" + (f" — Rs. {price:,.0f}" if price else "")
-            if p.image_url:
-                media_items.append({
-                    "product_id": p.id, "image_url": p.image_url, "caption": caption,
-                })
-            else:
-                text_lines.append(caption)
+        skipped = 0
+        for it, prod in zip(items, page):
+            price = catalog_gallery.gallery_price(prod, color)
+            blockers = catalog_gallery.gallery_blockers(prod, color)
+            image_url = catalog_gallery.resolve_media_url(prod.image_url)
+            caption = catalog_gallery.build_caption(
+                it["n"], prod.name, category_name, color, price)
+
+            if blockers or not image_url or not caption:
+                # Not gallery-ready: never send a half-filled caption or a
+                # `PKR 0` price. The design still gets its number as a text
+                # line, so one incomplete row cannot hide the valid ones or
+                # break the numbering the customer replies with.
+                skipped += 1
+                logger.info(
+                    "gallery_product_skipped",
+                    store_id=store_id, category_id=category_id,
+                    color=normalize_color(color) if color else None,
+                    product_id=prod.id,
+                    reasons=sorted(blockers.keys()) or ["caption_incomplete"],
+                )
+                text_lines.append(
+                    f"{it['n']}. {prod.name}" + (f" — PKR {price:,.0f}" if price else ""))
+                continue
+
+            variant = next(iter(catalog_gallery.sellable_variants(prod, color)), None)
+            media_items.append({
+                "product_id": prod.id,
+                "variant_id": variant.id if variant else None,
+                "image_url": image_url,
+                "caption": caption,
+                "selection_number": it["n"],
+            })
+
+        logger.info(
+            "gallery_page_built",
+            store_id=store_id, category_id=category_id,
+            color=normalize_color(color) if color else None,
+            matched=total, on_page=len(page),
+            gallery_ready=len(media_items), skipped=skipped,
+        )
 
         header = (f"{label} mein {total} designs available hain:" if ur
                   else f"{total} designs available in {label}:")
@@ -916,6 +1019,244 @@ class ConversationController:
         ))
         conversation.is_ai_controlled = False
 
+    # Intents that are a QUESTION asked during checkout rather than an answer to
+    # the checkout question. Each is answered from the database and must never
+    # consume the expected order field. order_cancel / order_status short-circuit
+    # earlier in process(); human_agent_request is here so the handoff is still
+    # created instead of being swallowed by the order prompt.
+    _ORDER_INTERRUPT_INTENTS = frozenset({
+        "human_agent_request", "complaint",
+        "picture_request", "price_query", "stock_query",
+        "color_query", "size_query", "negotiation",
+        "delivery_query", "returns_query", "exchange_query", "cod_query",
+        "store_info",
+    })
+
+    # Product facts answered straight from the catalogue rather than from the
+    # generic search pipeline, because during checkout we already know exactly
+    # which product and variant the customer means.
+    _GROUNDED_INTERRUPTS = frozenset({
+        "picture_request", "price_query", "stock_query", "color_query", "size_query",
+    })
+
+    @staticmethod
+    def _log_order_routing(store_id, conversation, expected_order_field,
+                           deterministic_intent, deterministic_confidence,
+                           llm_classification, final_intent, decision):
+        """Record how one checkout turn was routed.
+
+        Deliberately carries no message text, name, phone or address — only the
+        classification and the decision, which is what is needed to explain a
+        turn that went the wrong way.
+        """
+        logger.info(
+            "order_turn_routing",
+            store_id=store_id,
+            order_stage=conversation.order_stage,
+            expected_order_field=expected_order_field,
+            deterministic_intent=deterministic_intent,
+            deterministic_confidence=round(float(deterministic_confidence or 0), 2),
+            llm_intent=(llm_classification.intent if llm_classification else None),
+            llm_confidence=(round(float(llm_classification.confidence), 2)
+                            if llm_classification else None),
+            llm_answers_expected_field=(llm_classification.expected_field_valid
+                                        if llm_classification else None),
+            final_intent=final_intent,
+            decision=decision,
+        )
+
+    def _checkout_pending_reminder(self, conversation, store_language) -> str:
+        """The outstanding checkout question, phrased as a reminder."""
+        prompt = self.orders.get_next_prompt(conversation, store_language)
+        if not prompt:
+            return ""
+        lang = "ur" if store_language in ("ur", "roman_urdu") else "en"
+        return t("checkout_still_waiting", lang, prompt=prompt)
+
+    async def _checkout_interrupt(
+        self, db, conversation, message, intent_name, entities, response,
+        products, store_language, llm_classification,
+    ):
+        """Answer a question asked mid-checkout without consuming the order field.
+
+        Returns a ProcessedResponse to short-circuit the turn, or None to let the
+        order state machine handle the message as an answer. Order state is never
+        mutated here — that is the whole point.
+        """
+        if conversation.order_stage in ("BROWSING", "ORDER_CREATED"):
+            return None
+        if intent_name not in self._ORDER_INTERRUPT_INTENTS:
+            return None
+
+        product = self._product(products, conversation.current_product_id)
+        if not product:
+            return None
+
+        # A bare "black" or "M" answering the colour/size question can be labelled
+        # color_query/size_query. While that question is on the table, a message
+        # that names one of THIS product's real labels is an answer, not a query.
+        # Only skip when the entity actually answers the question being asked:
+        # a size named while we are choosing a variant is an answer, while the
+        # same word at the name/phone step ("is medium available?") is a question.
+        if conversation.order_stage == "PRODUCT_SELECTED":
+            label_color, label_size = self._match_variant_labels(product, message)
+            if label_color or label_size or entities.color or entities.size:
+                return None
+        if conversation.order_stage == "VARIANT_SELECTED" and entities.quantity:
+            return None
+        # Deterministic answer-guards, kept deliberately narrow: they only cover
+        # the intents that a real ANSWER can be mislabelled as, so the model
+        # being unavailable cannot cost us a payment method or an address.
+        # A broad guard here is worse than none — treating every plausible-
+        # looking sentence as the answer swallowed "Send me the picture" as a
+        # delivery address.
+        if (conversation.order_stage == "ADDRESS_REQUIRED"
+                and intent_name == "cod_query"
+                and self._payment_method(normalized=normalize_text(message))):
+            return None
+        if (conversation.order_stage == "CUSTOMER_DETAILS_REQUIRED"
+                and intent_name == "store_info"
+                and self._looks_like_address(message, intent_name)):
+            # "address" is a store_info keyword, so a real delivery address can
+            # be labelled store_info. The address step owns that message.
+            return None
+
+        # The model saw the expected order field when it classified this message.
+        # If it says the message DOES supply that field, believe it over an intent
+        # label and let the state machine consume the turn.
+        if llm_classification and llm_classification.expected_field_valid is True:
+            return None
+
+        lang = "ur" if store_language in ("ur", "roman_urdu") else "en"
+        variant = self._variant(product, conversation.current_variant_id)
+        reminder = self._checkout_pending_reminder(conversation, store_language)
+
+        if intent_name in self._GROUNDED_INTERRUPTS:
+            answer, image_url = self._product_fact_answer(
+                product, variant, intent_name, lang, entities)
+            # We answered this from the catalogue itself, so any low-confidence
+            # escalation the generic search pipeline raised no longer applies.
+            # Propagating it handed the conversation to a human — and silenced
+            # the bot for the rest of the order — over a question we had just
+            # answered correctly.
+            needs_human, escalation_reason = False, None
+        elif intent_name in ("human_agent_request", "complaint"):
+            # The pipeline re-detects intent from the raw text and had labelled
+            # this a product search, so the customer got "we couldn't find ... in
+            # our catalogue" instead of being put through to a person. Build the
+            # handoff reply from the accepted intent instead.
+            handoff = self.processor.response_builder.build_human_handoff_response(
+                "explicit_request" if intent_name == "human_agent_request" else "complaint",
+                store_language,
+            )
+            answer, image_url = handoff.message, None
+            needs_human, escalation_reason = True, handoff.escalation_reason
+        else:
+            # Policy intents: the pipeline already answered them from the store's
+            # own policies. Keep that answer, keep its escalation flag.
+            answer, image_url = response.message, None
+            needs_human, escalation_reason = response.needs_human, response.escalation_reason
+
+        if not answer:
+            return None
+
+        return ProcessedResponse(
+            message=answer + reminder,
+            intent=intent_name,
+            confidence=1.0,
+            matched_product_id=product.id,
+            matched_variant_id=variant.id if variant else None,
+            image_url=image_url,
+            sources=[f"catalog:product:{product.id}"] if image_url or intent_name in self._GROUNDED_INTERRUPTS else response.sources,
+            extracted_entities=response.extracted_entities,
+            needs_human=needs_human,
+            escalation_reason=escalation_reason,
+            store_id=response.store_id,
+            customer_number=response.customer_number,
+        )
+
+    def _product_fact_answer(self, product, variant, intent_name, lang, entities=None):
+        """Answer a product question from persisted rows. Returns (text, image_url).
+
+        Everything here reads the database. Nothing is model-generated, so the
+        assistant can never quote a price, a stock level or an image that the
+        seller did not actually save.
+        """
+        active = [v for v in product.variants if v.is_active]
+        chosen = [variant] if variant else active
+
+        if intent_name == "picture_request":
+            image_url = catalog_gallery.resolve_media_url(product.image_url)
+            if not image_url:
+                # Honest, not "I'll send it shortly" — there is nothing to send.
+                return t("picture_none_saved", lang, product=product.name), None
+            bits = [f"*{product.name}*"]
+            colors = [v.color for v in chosen if v.color]
+            sizes = [v.size for v in chosen if v.size]
+            if colors:
+                bits.append(("رنگ: " if lang == "ur" else "Colour: ") + ", ".join(dict.fromkeys(colors)))
+            if sizes:
+                bits.append(("سائز: " if lang == "ur" else "Size: ") + ", ".join(dict.fromkeys(sizes)))
+            price = catalog_gallery.gallery_price(product) or (
+                min((v.price for v in chosen if v.price), default=None))
+            if price:
+                bits.append(f"Price: PKR {price:,.0f}")
+            return "\n".join(bits), image_url
+
+        if intent_name == "price_query":
+            prices = [v.price for v in chosen if v.price] or [product.base_price or 0]
+            lo, hi = min(prices), max(prices)
+            if not lo:
+                return None, None
+            text = f"*{product.name}* — PKR {lo:,.0f}"
+            if hi != lo:
+                text += f" – PKR {hi:,.0f}"
+            return text, None
+
+        if intent_name == "stock_query":
+            in_stock = [v for v in chosen if v.stock and v.stock > 0]
+            if not in_stock:
+                return f"*{product.name}* — " + t("stock_out", lang), None
+            total = sum(v.stock for v in in_stock)
+            return f"*{product.name}* — " + t("stock_available", lang, stock=total), None
+
+        if intent_name in ("color_query", "size_query"):
+            key = "color" if intent_name == "color_query" else "size"
+            in_stock = [v for v in active if v.stock and v.stock > 0]
+            labels = list(dict.fromkeys(
+                getattr(v, key) for v in in_stock if getattr(v, key)))
+
+            # The customer asked about one specific label ("is medium available?").
+            # Answer that question rather than listing everything.
+            asked = getattr(entities, key, None) if entities else None
+            if asked:
+                match = next((lab for lab in labels
+                              if lab.strip().casefold() == str(asked).strip().casefold()), None)
+                if match:
+                    return t("variant_label_available", lang,
+                             label=match, product=product.name), None
+                if labels:
+                    return t("variant_label_unavailable", lang, label=asked,
+                             product=product.name, options=", ".join(labels)), None
+                # The product simply has no such option — saying "out of stock"
+                # here would be untrue, since the product itself is available.
+                stock_line = (t("stock_available", lang, stock=sum(v.stock for v in in_stock))
+                              if in_stock else t("stock_out", lang))
+                none_key = "no_size_options" if key == "size" else "no_color_options"
+                return t(none_key, lang, product=product.name) + " " + stock_line, None
+
+            if not labels:
+                stock_line = (t("stock_available", lang, stock=sum(v.stock for v in in_stock))
+                              if in_stock else t("stock_out", lang))
+                none_key = "no_size_options" if key == "size" else "no_color_options"
+                return t(none_key, lang, product=product.name) + " " + stock_line, None
+
+            label_word = (("رنگ" if key == "color" else "سائز") if lang == "ur"
+                          else ("Colours" if key == "color" else "Sizes"))
+            return f"*{product.name}*\n{label_word}: " + ", ".join(labels), None
+
+        return None, None
+
     async def _advance_order(
         self,
         db: AsyncSession,
@@ -927,6 +1268,7 @@ class ConversationController:
         products: list[Product],
         store_language: str,
         customer_number: str,
+        llm_classification=None,
     ) -> ProcessedResponse | None:
         active = conversation.order_stage not in {"BROWSING", "ORDER_CREATED"}
         if not active and intent not in {"order_request", "order_confirmation"}:
@@ -1025,14 +1367,45 @@ class ConversationController:
             # Same rule as the address step: only a reply sent while we were
             # actually asking for the name may be stored as the name, or "Order"
             # ends up as the customer's name.
-            name, phone = self._customer_details(message, customer_number)
+            # A phone already captured on an earlier turn stands in for the
+            # WhatsApp number, so a later bare name completes the pair.
+            name, phone = self._customer_details(
+                message, conversation.customer_phone or customer_number)
+            # The model sees the expected order field in the same classification
+            # request made for every inbound message. It can veto text that is
+            # semantically not a name; local validation remains authoritative so
+            # a model outage or hallucinated extraction cannot corrupt an order.
+            if llm_classification and llm_classification.expected_field_valid is False:
+                name = phone = None
             if name and phone:
                 self.orders.advance_stage(
                     conversation, customer_name=name, customer_phone=phone
                 )
+            elif self._is_refusal(message, llm_classification):
+                # Repeating the same prompt at someone who just said no reads as
+                # a broken machine. Say why the name is needed and offer a way out.
+                return self._order_message(
+                    t("checkout_name_refused", lang), conversation, response)
+            else:
+                supplied_phone = self._phone_in_message(message)
+                if supplied_phone:
+                    # They gave the number but no usable name. Keep the number —
+                    # making them retype it is the kind of thing that loses a sale.
+                    conversation.customer_phone = supplied_phone
+                    return self._order_message(
+                        t("checkout_name_only", lang), conversation, response)
+                if message.strip():
+                    # They replied, but not with a name. Repeating the identical
+                    # sentence is what made the bot look hard-coded; show the
+                    # format that actually works instead.
+                    return self._order_message(
+                        t("checkout_name_phone_example", lang), conversation, response)
 
         if conversation.order_stage == "CUSTOMER_DETAILS_REQUIRED" and entry_stage == "CUSTOMER_DETAILS_REQUIRED":
-            if self._looks_like_address(message, intent):
+            ai_accepts = not (
+                llm_classification and llm_classification.expected_field_valid is False
+            )
+            if ai_accepts and self._looks_like_address(message, intent):
                 conversation.requested_city = entities.delivery_city
                 self.orders.advance_stage(
                     conversation, customer_address=message.strip()
@@ -1040,6 +1413,8 @@ class ConversationController:
 
         if conversation.order_stage == "ADDRESS_REQUIRED":
             payment = self._payment_method(normalized=normalize_text(message))
+            if llm_classification and llm_classification.expected_field_valid is False:
+                payment = None
             if payment:
                 self.orders.advance_stage(conversation, payment_method=payment)
 
@@ -1408,6 +1783,38 @@ class ConversationController:
         ]
         return matches[0] if len(matches) == 1 else None
 
+    _PHONE_RE = re.compile(r"\b(?:\+?92|0)?3\d{9}\b")
+
+    @classmethod
+    def _phone_in_message(cls, message: str) -> str | None:
+        """A Pakistani mobile number typed by the customer, or None.
+
+        Distinct from the WhatsApp number they are messaging from: this is what
+        they explicitly gave us, so it can be kept while we ask for the name.
+        """
+        match = cls._PHONE_RE.search(message or "")
+        return match.group(0) if match else None
+
+    # Deterministic refusals, so a declining customer is recognised even when the
+    # model is unavailable. The LLM signal is preferred when present.
+    _REFUSAL_PATTERNS = (
+        r"\b(do|does)?\s?n['’]?t\s+(want|wanna|wish)\b",
+        r"\bwon['’]?t\s+(give|share|tell|provide)\b",
+        r"\b(not|no)\s+(giving|sharing|telling|providing)\b",
+        r"\brefuse\b",
+        r"\bnahi\s+(dena|dunga|dungi|batana|bataunga|bataungi)\b",
+        r"\bnaam\s+nahi\b",
+        r"\bnahi\s+bata\w*\b",
+        r"نہیں\s*(دوں|دینا|بتا)",
+    )
+
+    @classmethod
+    def _is_refusal(cls, message: str, llm_classification=None) -> bool:
+        if llm_classification is not None and getattr(llm_classification, "is_refusal", None) is True:
+            return True
+        text = normalize_text(message or "").casefold()
+        return any(re.search(pat, text) for pat in cls._REFUSAL_PATTERNS)
+
     @staticmethod
     def _customer_details(message, fallback_phone):
         phone_match = re.search(r'\b(?:\+?92|0)?3\d{9}\b', message)
@@ -1415,9 +1822,29 @@ class ConversationController:
         name_text = re.sub(r'\b(?:\+?92|0)?3\d{9}\b', '', message)
         name_text = re.sub(r'\b(my name is|name|naam|phone|number|hai|is)\b', '', name_text, flags=re.I)
         name = " ".join(name_text.split()).strip(" ,-")
-        if not name or len(name) > 80 or any(char.isdigit() for char in name):
+        if not ConversationController._plausible_customer_name(name):
             return None, None
         return name.title(), phone
+
+    @staticmethod
+    def _plausible_customer_name(name: str) -> bool:
+        """Reject commands/refusals that the old extractor stored as names."""
+        name = " ".join((name or "").split()).strip(" ,-")
+        if not 2 <= len(name) <= 80 or any(char.isdigit() for char in name):
+            return False
+        words = name.casefold().split()
+        if not 1 <= len(words) <= 5:
+            return False
+        blocked = {
+            "order", "confirm", "confirmed", "yes", "no", "ok", "okay",
+            "cod", "address", "price", "product", "send", "picture", "photo",
+            "nahi", "nahin", "haan", "want", "dont", "don't", "refuse",
+            "hello", "hi", "hey", "enter", "entering", "give", "giving",
+            "provided", "provide", "skip", "not", "my", "name", "phone",
+        }
+        if any(word.strip("'-.!") in blocked for word in words):
+            return False
+        return all(char.isalpha() or char in " '-." for char in name)
 
     @classmethod
     def _looks_like_address(cls, message, intent):
@@ -1431,10 +1858,20 @@ class ConversationController:
         """
         if cls._is_affirmative(message):
             return False
-        return len(message.strip()) >= 8 and (
-            bool(re.search(r'\d|street|road|block|phase|sector|house|gali|mohalla', message, re.I))
-            or "," in message
-        )
+        text = message.strip()
+        if len(text) < 6:
+            return False
+        if re.search(r'\d|street|road|block|phase|sector|house|gali|mohalla', text, re.I) or "," in text:
+            return True
+        # Most Pakistani addresses given over WhatsApp are just "City Area"
+        # ("Mardan Katlang") — no house number, no comma, no street word. The
+        # old rule rejected every one of them and the order stalled forever.
+        # Questions asked at this step no longer reach here: interrupt intents
+        # are routed away before the address is read, which is what makes
+        # accepting a bare two-word place name safe.
+        words = [w for w in re.split(r"\s+", text) if w]
+        return len(words) >= 2 and all(
+            all(ch.isalpha() or ch in "-'." for ch in w) for w in words)
 
     # --- Deterministic "yes" reading -------------------------------------
     # Used only on a turn that has just asked a Yes/No question. Kept

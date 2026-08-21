@@ -50,6 +50,11 @@ class ProductResponse(BaseModel):
     image_url: Optional[str] = None
     is_active: bool
     variants: list[VariantResponse] = []
+    # Derived, read-only: whether this product can be sent as a catalogue
+    # picture, and what is missing when it cannot. Lets the seller UI mark a
+    # historical text-only product without the seller having to guess why.
+    gallery_ready: bool = False
+    gallery_blockers: dict[str, str] = {}
 
     model_config = {"from_attributes": True}
 
@@ -85,6 +90,22 @@ class CategoryResponse(BaseModel):
 class MoveProductRequest(BaseModel):
     # None → move product to "Uncategorized".
     category_id: Optional[str] = None
+
+
+class UpdateProductRequest(BaseModel):
+    """Edit a product's details. Every field is optional — omitted fields are
+    left untouched, so a caller can change just the price or just the name."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    sku: Optional[str] = None
+    category: Optional[str] = None
+    category_id: Optional[str] = None
+    color: Optional[str] = None
+    # Opt-in assertion that the product should be sendable as a catalogue
+    # picture. Not stored — the edit is rejected when the resulting product
+    # would still be incomplete.
+    gallery_ready: Optional[bool] = None
 
 
 # --- Demo message schemas ---
@@ -210,6 +231,51 @@ class OrderResponse(BaseModel):
     items: list[OrderItemResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+# --- Dashboard overview (read-only) ---
+class DashboardPeriod(BaseModel):
+    range: str
+    start: str
+    end: str
+    timezone: str
+
+
+class DashboardMetrics(BaseModel):
+    conversations_handled: int
+    inbound_messages: int
+    orders_confirmed: int
+    orders_cancelled: int
+    revenue_pkr: float
+    needs_attention: int
+
+
+class DashboardActivityItem(BaseModel):
+    id: str
+    type: str  # order_confirmed | order_cancelled | conversation_started | escalation
+    description: str
+    created_at: str
+    order_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+
+
+class DashboardAttentionItem(BaseModel):
+    id: str
+    conversation_id: str
+    reason: str
+    summary: Optional[str] = None
+    status: str
+    customer_phone_masked: Optional[str] = None
+    created_at: str
+
+
+class DashboardOverviewResponse(BaseModel):
+    store_id: str
+    period: DashboardPeriod
+    metrics: DashboardMetrics
+    activity: list[DashboardActivityItem] = []
+    attention_items: list[DashboardAttentionItem] = []
+    generated_at: str
 
 
 # --- Health ---

@@ -1,6 +1,7 @@
 """Tests for order workflow state machine."""
 import pytest
 from app.services.order_manager import OrderManager
+from app.services.conversation_controller import ConversationController
 from app.models.conversation import Conversation
 from app.models.product import Product, ProductVariant
 
@@ -79,6 +80,33 @@ class TestStageAdvancement:
         )
         assert stage == "CUSTOMER_DETAILS_REQUIRED"
         assert conversation.customer_name == "Ali Hassan"
+
+
+class TestCustomerDetailValidation:
+    """Order replies must not be persisted as customer names."""
+
+    @pytest.mark.parametrize("message", [
+        "Order",
+        "confirmed",
+        "hello",
+        "I am not entering my name",
+        "send picture",
+        "COD",
+        "12345",
+    ])
+    def test_non_names_are_rejected(self, message):
+        name, phone = ConversationController._customer_details(
+            message, "923001234567"
+        )
+        assert name is None
+        assert phone is None
+
+    def test_real_name_and_phone_are_extracted(self):
+        name, phone = ConversationController._customer_details(
+            "My name is Ali Hassan, 03001234567", "923009999999"
+        )
+        assert name == "Ali Hassan"
+        assert phone == "03001234567"
 
     def test_details_to_address(self, manager, conversation):
         conversation.order_stage = "CUSTOMER_DETAILS_REQUIRED"
